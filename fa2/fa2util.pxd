@@ -27,7 +27,12 @@ cdef class Edge:
     cdef public int node1, node2
     cdef public double weight
 
-
+cdef class Region:
+    cdef public double mass
+    cdef public double massCenterX, massCenterY
+    cdef public double size
+    cdef public list nodes
+    cdef public list subregions
 
 # Repulsion function.  `n1` and `n2` should be nodes.  This will
 # adjust the dx and dy values of `n1` (and optionally `n2`).  It does
@@ -38,6 +43,12 @@ cdef class Edge:
                distance2 = cython.double, 
                factor = cython.double)
 cdef void linRepulsion(Node n1, Node n2, double coefficient=*)
+
+@cython.locals(xDist = cython.double,
+               yDist = cython.double,
+               distance2 = cython.double,
+               factor = cython.double)
+cdef void linRepulsionRegion(Node n, Region r, double coefficient=*)
 
 
 @cython.locals(xDist = cython.double, 
@@ -62,3 +73,24 @@ cpdef void apply_repulsion(list nodes, double coefficient)
 cpdef void apply_gravity(list nodes, double gravity, double scalingRatio, useStrongGravity=*)
 
 cpdef void apply_attraction(list nodes, list edges, double coefficient, double edgeWeightInfluence)
+
+@cython.locals(massSumX = cython.double,
+               massSumY = cython.double,
+               n = Node,
+               distance = cython.double)
+cpdef Region updateMassAndGeometry(list nodes)
+
+@cython.locals(n = Node,
+               leftNodes = list,
+               rightNodes = list,
+               topleftNodes = list,
+               bottomleftNodes = list,
+               toprightNodes = list,
+               bottomrightNodes = list,
+               subregion = Region)
+cpdef void buildSubRegions(Region region)
+
+
+@cython.locals(distance = cython.double,
+               subregion = Region)
+cpdef void applyForce(Node n, Region r, double theta, double coefficient=*)

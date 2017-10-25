@@ -86,7 +86,7 @@ class ForceAtlas2:
                  scalingRatio=2.0,
                  strongGravityMode=False,
                  gravity=1.0):
-        assert outboundAttractionDistribution == linLogMode == adjustSizes == barnesHutOptimize == False, "You selected a feature that has not been implemented yet..."
+        assert outboundAttractionDistribution == linLogMode == adjustSizes == False, "You selected a feature that has not been implemented yet..."
         self.outboundAttractionDistribution = outboundAttractionDistribution
         self.linLogMode = linLogMode
         self.adjustSizes = adjustSizes
@@ -169,6 +169,7 @@ class ForceAtlas2:
         # Main loop, i.e. goAlgo()
         # ========================
 
+        barnes_hut_timer = Timer(name="BarnesHut")
         repulsion_timer = Timer(name="Repulsion")
         gravity_timer = Timer(name="Gravity")
         attraction_timer = Timer(name="Attraction")
@@ -180,7 +181,12 @@ class ForceAtlas2:
                 n.dx = 0
                 n.dy = 0
 
-            # Barnes Hut optimization step goes here...
+            barnes_hut_timer.start()
+            # Barnes Hut optimization
+            if self.barnesHutOptimize:
+                rootRegion = fa2util.updateMassAndGeometry(nodes)
+                fa2util.buildSubRegions(rootRegion)
+            barnes_hut_timer.stop()
 
             if self.outboundAttractionDistribution:
                 outboundAttCompensation = numpy.mean([n.mass for n in nodes])
@@ -190,7 +196,11 @@ class ForceAtlas2:
             # version of the function.
 
             repulsion_timer.start()
-            fa2util.apply_repulsion(nodes, self.scalingRatio)
+            if self.barnesHutOptimize:
+                for n in nodes:
+                    fa2util.applyForce(n, rootRegion, self.barnesHutTheta, self.scalingRatio)
+            else:
+                fa2util.apply_repulsion(nodes, self.scalingRatio)
             repulsion_timer.stop()
 
             gravity_timer.start()
@@ -253,6 +263,7 @@ class ForceAtlas2:
                 n.x = n.x + (n.dx * factor)
                 n.y = n.y + (n.dy * factor)
 
+        barnes_hut_timer.print()
         repulsion_timer.print()
         gravity_timer.print()
         attraction_timer.print()
