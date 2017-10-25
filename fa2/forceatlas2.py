@@ -26,6 +26,7 @@
 # Available under the GPLv3
 
 import random
+import time
 from math import sqrt
 
 import numpy
@@ -51,6 +52,22 @@ from . import fa2util
 # use networkx.  In this case, you'll likely need to convert the
 # output to a more usable format.  If you do use networkx, use the
 # "forceatlas2_networkx_layout" function below.
+
+class Timer:
+    def __init__(self, name="Timer"):
+        self.name = name
+        self.start_time = 0.0
+        self.total_time = 0.0
+
+    def start(self):
+        self.start_time = time.time()
+
+    def stop(self):
+        self.total_time += (time.time() - self.start_time)
+
+    def print(self):
+        print(self.name, " took total ", self.total_time, " seconds")
+
 
 class ForceAtlas2:
     def __init__(self,
@@ -152,6 +169,9 @@ class ForceAtlas2:
         # Main loop, i.e. goAlgo()
         # ========================
 
+        repulsion_timer = Timer(name="Repulsion")
+        gravity_timer = Timer(name="Gravity")
+        attraction_timer = Timer(name="Attraction")
         # Each iteration of this loop reseprensts a call to goAlgo().
         for _i in range(0, iterations):
             for n in nodes:
@@ -168,12 +188,20 @@ class ForceAtlas2:
             # I did not implement parallelization here.  Also, Barnes Hut
             # optimization would change this from "linRepulsion" to another
             # version of the function.
+
+            repulsion_timer.start()
             fa2util.apply_repulsion(nodes, self.scalingRatio)
+            repulsion_timer.stop()
+
+            gravity_timer.start()
             fa2util.apply_gravity(nodes, self.gravity, self.scalingRatio, useStrongGravity=self.strongGravityMode)
+            gravity_timer.stop()
 
             # If other forms of attraction were implemented they would be
             # selected here.
+            attraction_timer.start()
             fa2util.apply_attraction(nodes, edges, 1.0, self.edgeWeightInfluence)
+            attraction_timer.stop()
 
             # Auto adjust speed.
             totalSwinging = 0.0  # How much irregular movement
@@ -224,6 +252,10 @@ class ForceAtlas2:
                 factor = speed / (1.0 + sqrt(speed * swinging))
                 n.x = n.x + (n.dx * factor)
                 n.y = n.y + (n.dy * factor)
+
+        repulsion_timer.print()
+        gravity_timer.print()
+        attraction_timer.print()
         return [(n.x, n.y) for n in nodes]
 
     # A layout for NetworkX.
