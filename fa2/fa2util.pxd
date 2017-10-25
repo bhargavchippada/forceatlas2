@@ -8,7 +8,7 @@
 # IF ANY CHANGES ARE MADE TO fa2util.py, THE CHANGES MUST BE REFLECTED
 # HERE!!
 #
-# Copyright 2016 Max Shinn <mws41@cam.ac.uk>
+# Copyright 2017 Bhargav Chippada <bhargavchippada19@gmail.com>
 #
 # Available under the GPLv3
 

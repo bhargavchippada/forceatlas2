@@ -21,13 +21,16 @@
 #
 # NOTES: Currently, this only works for unweighted, undirected graphs.
 #
-# Copyright 2016 Max Shinn <mws41@cam.ac.uk>
+# Copyright 2017 Bhargav Chippada <bhargavchippada19@gmail.com>
 #
 # Available under the GPLv3
 
-import numpy
-from math import sqrt
 import random
+from math import sqrt
+
+import numpy
+import scipy
+
 from . import fa2util
 
 
@@ -78,31 +81,33 @@ class ForceAtlas2:
         self.strongGravityMode = strongGravityMode
         self.gravity = gravity
 
-    def forceatlas2(self,
-                    G,  # a graph, in 2D numpy ndarray format
-                    pos=None,  # Vector of initial positions
-                    iterations=100  # Number of times to iterate the main loop
-                    ):
-        # Check our assumptions
-        assert isinstance(G, numpy.ndarray), "G is not a numpy ndarray"
-        assert G.shape == (G.shape[0], G.shape[0]), "G is not 2D square"
-        assert numpy.all(G.T == G), "G is not symmetric.  Currently only undirected graphs are supported"
-        assert isinstance(pos, numpy.ndarray) or (pos is None), "Invalid node positions"
-
-        # Initializing, ala initAlgo()
-        # ============================
-
-        # speed and speedEfficiency describe a scaling factor of dx and dy
-        # before x and y are adjusted.  These are modified as the
-        # algorithm runs to help ensure convergence.
-        speed = 1.0
-        speedEfficiency = 1.0
+    def init(self,
+             G,  # a graph in 2D numpy ndarray format (or) scipy sparse matrix format
+             pos=None  # Array of initial positions
+             ):
+        isSparse = False
+        if isinstance(G, numpy.ndarray):
+            # Check our assumptions
+            assert G.shape == (G.shape[0], G.shape[0]), "G is not 2D square"
+            assert numpy.all(G.T == G), "G is not symmetric.  Currently only undirected graphs are supported"
+            assert isinstance(pos, numpy.ndarray) or (pos is None), "Invalid node positions"
+        elif scipy.sparse.issparse(G):
+            # Check our assumptions
+            assert G.shape == (G.shape[0], G.shape[0]), "G is not 2D square"
+            assert isinstance(pos, numpy.ndarray) or (pos is None), "Invalid node positions"
+            G = G.tolil()
+            isSparse = True
+        else:
+            assert False, "G is not numpy ndarray or scipy sparse matrix"
 
         # Put nodes into a data structure we can understand
         nodes = []
         for i in range(0, G.shape[0]):
             n = fa2util.Node()
-            n.mass = 1 + numpy.count_nonzero(G[i])
+            if isSparse:
+                n.mass = 1 + len(G.rows[i])
+            else:
+                n.mass = 1 + numpy.count_nonzero(G[i])
             n.old_dx = 0
             n.old_dy = 0
             n.dx = 0
@@ -125,6 +130,24 @@ class ForceAtlas2:
             edge.node2 = e[1]  # The index of the second node in `nodes`
             edge.weight = G[tuple(e)]
             edges.append(edge)
+
+        return nodes, edges
+
+    def forceatlas2(self,
+                    G,  # a graph in 2D numpy ndarray format (or) scipy sparse matrix format
+                    pos=None,  # Array of initial positions
+                    iterations=100  # Number of times to iterate the main loop
+                    ):
+        # Initializing, initAlgo()
+        # ================================================================
+
+        # speed and speedEfficiency describe a scaling factor of dx and dy
+        # before x and y are adjusted.  These are modified as the
+        # algorithm runs to help ensure convergence.
+        speed = 1.0
+        speedEfficiency = 1.0
+        nodes, edges = self.init(G, pos)
+        # ================================================================
 
         # Main loop, i.e. goAlgo()
         # ========================
@@ -203,18 +226,7 @@ class ForceAtlas2:
                 n.y = n.y + (n.dy * factor)
         return [(n.x, n.y) for n in nodes]
 
-    # A layout for NetworkX.  This can be used as follows:
-    #
-    #     import matplotlib.pyplot as plt
-    #     G = networkx.karate_club_graph()
-    #     pos = { i : (random.random(), random.random()) for i in G.nodes()} # Optionally specify positions as a dictionary
-    #     l = forceatlas2.forceatlas2_layout(G, pos, niter=1000) # Optionally specify iteration count
-    #     networkx.draw_networkx(G, l)
-    #     plt.show()
-    #
-    # You can also use any of the arguments allowed in the "forceatlas2"
-    # function.  These arguments must be called by keyword, not by
-    # position.
+    # A layout for NetworkX.
     #
     # This function returns a NetworkX layout, which is really just a
     # dictionary of node positions (2D X-Y tuples) indexed by the node
@@ -223,8 +235,7 @@ class ForceAtlas2:
         import networkx
         assert isinstance(G, networkx.classes.graph.Graph), "Not a networkx graph"
         assert isinstance(pos, dict) or (pos is None), "pos must be specified as a dictionary, as in networkx"
-        M = numpy.asarray(networkx.to_numpy_matrix(G))
-        print("Number of Edges: ", numpy.count_nonzero(M))
+        M = networkx.to_scipy_sparse_matrix(G, dtype='f', format='lil')
         if pos is None:
             l = self.forceatlas2(M, pos=None, iterations=iterations)
         else:

@@ -6,7 +6,7 @@
 # The only catch is that IF YOU MODIFY THIS FILE, YOU MUST ALSO MODIFY
 # fa2util.pxd TO REFLECT ANY CHANGES IN FUNCTION DEFINITIONS!
 #
-# Copyright 2016 Max Shinn <mws41@cam.ac.uk>
+# Copyright 2017 Bhargav Chippada <bhargavchippada19@gmail.com>
 #
 # Available under the GPLv3
 
