@@ -34,16 +34,6 @@ class Edge:
         self.weight = 0.0
 
 
-class Region:
-    def __init__(self, nodes):
-        self.mass = 0.0
-        self.massCenterX = 0.0
-        self.massCenterY = 0.0
-        self.size = 0.0
-        self.nodes = nodes
-        self.subregions = []
-
-
 # Here are some functions from ForceFactory.java
 # =============================================
 
@@ -147,103 +137,109 @@ def apply_attraction(nodes, edges, coefficient, edgeWeightInfluence):
         for edge in edges:
             linAttraction(nodes[edge.node1], nodes[edge.node2], pow(edge.weight, edgeWeightInfluence), coefficient)
 
+class Region:
+    def __init__(self, nodes):
+        self.mass = 0.0
+        self.massCenterX = 0.0
+        self.massCenterY = 0.0
+        self.size = 0.0
+        self.nodes = nodes
+        self.subregions = []
+        self.updateMassAndGeometry()
 
-def updateMassAndGeometry(nodes):
-    region = Region(nodes)
-    if len(nodes) > 1:
-        region.mass = 0
-        massSumX = 0
-        massSumY = 0
-        for n in nodes:
-            region.mass += n.mass
-            massSumX += n.x * n.mass
-            massSumY += n.y * n.mass
-        region.massCenterX = massSumX / region.mass;
-        region.massCenterY = massSumY / region.mass;
+    def updateMassAndGeometry(self):
+        if len(self.nodes) > 1:
+            self.mass = 0
+            massSumX = 0
+            massSumY = 0
+            for n in self.nodes:
+                self.mass += n.mass
+                massSumX += n.x * n.mass
+                massSumY += n.y * n.mass
+            self.massCenterX = massSumX / self.mass;
+            self.massCenterY = massSumY / self.mass;
 
-        region.size = 0.0;
-        for n in nodes:
-            distance = sqrt((n.x - region.massCenterX) ** 2 + (n.y - region.massCenterY) ** 2)
-            region.size = max(region.size, 2 * distance)
-    return region
+            self.size = 0.0;
+            for n in self.nodes:
+                distance = sqrt((n.x - self.massCenterX) ** 2 + (n.y - self.massCenterY) ** 2)
+                self.size = max(self.size, 2 * distance)
 
+    def buildSubRegions(self):
+        if len(self.nodes) > 1:
 
-def buildSubRegions(region):
-    if len(region.nodes) > 1:
+            leftNodes = []
+            rightNodes = []
+            for n in self.nodes:
+                if n.x < self.massCenterX:
+                    leftNodes.append(n)
+                else:
+                    rightNodes.append(n)
 
-        leftNodes = []
-        rightNodes = []
-        for n in region.nodes:
-            if n.x < region.massCenterX:
-                leftNodes.append(n)
-            else:
-                rightNodes.append(n)
+            topleftNodes = []
+            bottomleftNodes = []
+            for n in leftNodes:
+                if n.y < self.massCenterY:
+                    topleftNodes.append(n)
+                else:
+                    bottomleftNodes.append(n)
 
-        topleftNodes = []
-        bottomleftNodes = []
-        for n in leftNodes:
-            if n.y < region.massCenterY:
-                topleftNodes.append(n)
-            else:
-                bottomleftNodes.append(n)
+            toprightNodes = []
+            bottomrightNodes = []
+            for n in rightNodes:
+                if n.y < self.massCenterY:
+                    toprightNodes.append(n)
+                else:
+                    bottomrightNodes.append(n)
 
-        toprightNodes = []
-        bottomrightNodes = []
-        for n in rightNodes:
-            if n.y < region.massCenterY:
-                toprightNodes.append(n)
-            else:
-                bottomrightNodes.append(n)
+            if len(topleftNodes) > 0:
+                if len(topleftNodes) < len(self.nodes):
+                    subregion = Region(topleftNodes)
+                    self.subregions.append(subregion)
+                else:
+                    for n in topleftNodes:
+                        subregion = Region([n])
+                        self.subregions.append(subregion)
 
-        if len(topleftNodes) > 0:
-            if len(topleftNodes) < len(region.nodes):
-                subregion = updateMassAndGeometry(topleftNodes)
-                region.subregions.append(subregion)
-            else:
-                for n in topleftNodes:
-                    subregion = updateMassAndGeometry([n])
-                    region.subregions.append(subregion)
+            if len(bottomleftNodes) > 0:
+                if len(bottomleftNodes) < len(self.nodes):
+                    subregion = Region(bottomleftNodes)
+                    self.subregions.append(subregion)
+                else:
+                    for n in bottomleftNodes:
+                        subregion = Region([n])
+                        self.subregions.append(subregion)
 
-        if len(bottomleftNodes) > 0:
-            if len(bottomleftNodes) < len(region.nodes):
-                subregion = updateMassAndGeometry(bottomleftNodes)
-                region.subregions.append(subregion)
-            else:
-                for n in bottomleftNodes:
-                    subregion = updateMassAndGeometry([n])
-                    region.subregions.append(subregion)
+            if len(toprightNodes) > 0:
+                if len(toprightNodes) < len(self.nodes):
+                    subregion = Region(toprightNodes)
+                    self.subregions.append(subregion)
+                else:
+                    for n in toprightNodes:
+                        subregion = Region([n])
+                        self.subregions.append(subregion)
 
-        if len(toprightNodes) > 0:
-            if len(toprightNodes) < len(region.nodes):
-                subregion = updateMassAndGeometry(toprightNodes)
-                region.subregions.append(subregion)
-            else:
-                for n in toprightNodes:
-                    subregion = updateMassAndGeometry([n])
-                    region.subregions.append(subregion)
+            if len(bottomrightNodes) > 0:
+                if len(bottomrightNodes) < len(self.nodes):
+                    subregion = Region(bottomrightNodes)
+                    self.subregions.append(subregion)
+                else:
+                    for n in bottomrightNodes:
+                        subregion = Region([n])
+                        self.subregions.append(subregion)
 
-        if len(bottomrightNodes) > 0:
-            if len(bottomrightNodes) < len(region.nodes):
-                subregion = updateMassAndGeometry(bottomrightNodes)
-                region.subregions.append(subregion)
-            else:
-                for n in bottomrightNodes:
-                    subregion = updateMassAndGeometry([n])
-                    region.subregions.append(subregion)
+            for subregion in self.subregions:
+                subregion.buildSubRegions()
 
-        for subregion in region.subregions:
-            buildSubRegions(subregion)
-
-def applyForce(n, r, theta, coefficient=0):
-    if len(r.nodes) < 2:
-        linRepulsion(n, r.nodes[0], coefficient)
-    else:
-        distance = sqrt((n.x - r.massCenterX) ** 2 + (n.y - r.massCenterY) ** 2)
-        if distance * theta > r.size:
-            linRepulsionRegion(n, r, coefficient)
+    def applyForce(self, n, theta, coefficient=0):
+        if len(self.nodes) < 2:
+            linRepulsion(n, self.nodes[0], coefficient)
         else:
-            for subregion in r.subregions:
-                applyForce(n, subregion, theta, coefficient)
+            distance = sqrt((n.x - self.massCenterX) ** 2 + (n.y - self.massCenterY) ** 2)
+            if distance * theta > self.size:
+                linRepulsionRegion(n, self, coefficient)
+            else:
+                for subregion in self.subregions:
+                    subregion.applyForce(n, theta, coefficient)
 
 
 try:

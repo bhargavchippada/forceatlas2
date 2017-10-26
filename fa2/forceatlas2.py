@@ -79,8 +79,8 @@ class ForceAtlas2:
 
                  # Performance
                  jitterTolerance=1.0,  # "Tolerance"
-                 barnesHutOptimize=False,  # NOT IMPLEMENTED
-                 barnesHutTheta=1.2,  # NOT IMPLEMENTED
+                 barnesHutOptimize=False,
+                 barnesHutTheta=1.2,
 
                  # Tuning
                  scalingRatio=2.0,
@@ -184,8 +184,8 @@ class ForceAtlas2:
             barnes_hut_timer.start()
             # Barnes Hut optimization
             if self.barnesHutOptimize:
-                rootRegion = fa2util.updateMassAndGeometry(nodes)
-                fa2util.buildSubRegions(rootRegion)
+                rootRegion = fa2util.Region(nodes)
+                rootRegion.buildSubRegions()
             barnes_hut_timer.stop()
 
             if self.outboundAttractionDistribution:
@@ -198,7 +198,7 @@ class ForceAtlas2:
             repulsion_timer.start()
             if self.barnesHutOptimize:
                 for n in nodes:
-                    fa2util.applyForce(n, rootRegion, self.barnesHutTheta, self.scalingRatio)
+                    rootRegion.applyForce(n, self.barnesHutTheta, self.scalingRatio)
             else:
                 fa2util.apply_repulsion(nodes, self.scalingRatio)
             repulsion_timer.stop()
