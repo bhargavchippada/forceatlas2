@@ -69,13 +69,13 @@ def linRepulsion_region(n, r, coefficient=0):
 # which doesn't make any sense (considering a. gravity is unrelated to
 # nodes repelling each other, and b. gravity is actually an
 # attraction).
-def linGravity(n, g, coefficient=0):
+def linGravity(n, g):
     xDist = n.x
     yDist = n.y
     distance = sqrt(xDist * xDist + yDist * yDist)
 
     if distance > 0:
-        factor = coefficient * n.mass * g / distance
+        factor = n.mass * g / distance
         n.dx -= xDist * factor
         n.dy -= yDist * factor
 
@@ -98,10 +98,10 @@ def strongGravity(n, g, coefficient=0):
 def linAttraction(n1, n2, e, distributedAttraction, coefficient=0):
     xDist = n1.x - n2.x
     yDist = n1.y - n2.y
-    if distributedAttraction:
-        factor = -coefficient * e / n1.mass
-    else:
+    if not distributedAttraction:
         factor = -coefficient * e
+    else:
+        factor = -coefficient * e / n1.mass
     n1.dx += xDist * factor
     n1.dy += yDist * factor
     n2.dx -= xDist * factor
@@ -119,13 +119,13 @@ def apply_repulsion(nodes, coefficient):
             linRepulsion(nodes[i], nodes[j], coefficient)
 
 
-def apply_gravity(nodes, gravity, scalingRatio, useStrongGravity=False):
+def apply_gravity(nodes, gravity, useStrongGravity=False):
     if not useStrongGravity:
-        for i in range(0, len(nodes)):
-            linGravity(nodes[i], gravity / scalingRatio, scalingRatio)
+        for n in nodes:
+            linGravity(n, gravity)
     else:
-        for i in range(0, len(nodes)):
-            strongGravity(nodes[i], gravity / scalingRatio, scalingRatio)
+        for n in nodes:
+            strongGravity(n, gravity)
 
 
 def apply_attraction(nodes, edges, distributedAttraction, coefficient, edgeWeightInfluence):
@@ -138,7 +138,9 @@ def apply_attraction(nodes, edges, distributedAttraction, coefficient, edgeWeigh
             linAttraction(nodes[edge.node1], nodes[edge.node2], edge.weight, distributedAttraction, coefficient)
     else:
         for edge in edges:
-            linAttraction(nodes[edge.node1], nodes[edge.node2], pow(edge.weight, edgeWeightInfluence), distributedAttraction, coefficient)
+            linAttraction(nodes[edge.node1], nodes[edge.node2], pow(edge.weight, edgeWeightInfluence),
+                          distributedAttraction, coefficient)
+
 
 class Region:
     def __init__(self, nodes):

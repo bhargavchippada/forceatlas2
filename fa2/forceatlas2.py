@@ -205,7 +205,7 @@ class ForceAtlas2:
             repulsion_timer.stop()
 
             gravity_timer.start()
-            fa2util.apply_gravity(nodes, self.gravity, self.scalingRatio, useStrongGravity=self.strongGravityMode)
+            fa2util.apply_gravity(nodes, self.gravity, useStrongGravity=self.strongGravityMode)
             gravity_timer.stop()
 
             # If other forms of attraction were implemented they would be

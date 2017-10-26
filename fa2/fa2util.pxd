@@ -48,7 +48,7 @@ cdef void linRepulsion_region(Node n, Region r, double coefficient=*)
                yDist = cython.double, 
                distance = cython.double, 
                factor = cython.double)
-cdef void linGravity(Node n, double g, double coefficient=*)
+cdef void linGravity(Node n, double g)
 
 
 @cython.locals(xDist = cython.double, 
@@ -63,7 +63,7 @@ cpdef void linAttraction(Node n1, Node n2, double e, bint distributedAttraction,
 
 cpdef void apply_repulsion(list nodes, double coefficient)
 
-cpdef void apply_gravity(list nodes, double gravity, double scalingRatio, bint useStrongGravity=*)
+cpdef void apply_gravity(list nodes, double gravity, bint useStrongGravity=*)
 
 cpdef void apply_attraction(list nodes, list edges, bint distributedAttraction, double coefficient, double edgeWeightInfluence)
 
