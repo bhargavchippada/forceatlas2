@@ -114,9 +114,15 @@ def linAttraction(n1, n2, e, distributedAttraction, coefficient=0):
 # relevant, they also contain the logic to select which version of the
 # force function to use.
 def apply_repulsion(nodes, coefficient):
-    for i in range(0, len(nodes)):
-        for j in range(0, i):
-            linRepulsion(nodes[i], nodes[j], coefficient)
+    i = 0
+    for n1 in nodes:
+        j = i
+        for n2 in nodes:
+            if j == 0:
+                break
+            linRepulsion(n1, n2, coefficient)
+            j -= 1
+        i += 1
 
 
 def apply_gravity(nodes, gravity, useStrongGravity=False):
@@ -245,6 +251,68 @@ class Region:
             else:
                 for subregion in self.subregions:
                     subregion.applyForce(n, theta, coefficient)
+
+    def applyForceOnNodes(self, nodes, theta, coefficient=0):
+        for n in nodes:
+            self.applyForce(n, theta, coefficient)
+
+
+def adjustSpeedAndApplyForces(nodes, speed, speedEfficiency, jitterTolerance):
+    # Auto adjust speed.
+    totalSwinging = 0.0  # How much irregular movement
+    totalEffectiveTraction = 0.0  # How much useful movement
+    for n in nodes:
+        swinging = sqrt((n.old_dx - n.dx) * (n.old_dx - n.dx) + (n.old_dy - n.dy) * (n.old_dy - n.dy))
+        totalSwinging += n.mass * swinging
+        totalEffectiveTraction += .5 * n.mass * sqrt(
+            (n.old_dx + n.dx) * (n.old_dx + n.dx) + (n.old_dy + n.dy) * (n.old_dy + n.dy))
+
+    # Optimize jitter tolerance.  The 'right' jitter tolerance for
+    # this network. Bigger networks need more tolerance. Denser
+    # networks need less tolerance. Totally empiric.
+    estimatedOptimalJitterTolerance = .05 * sqrt(len(nodes))
+    minJT = sqrt(estimatedOptimalJitterTolerance)
+    maxJT = 10
+    jt = jitterTolerance * max(minJT,
+                               min(maxJT, estimatedOptimalJitterTolerance * totalEffectiveTraction / (
+                                   len(nodes) * len(nodes))))
+
+    minSpeedEfficiency = 0.05
+
+    # Protective against erratic behavior
+    if totalSwinging / totalEffectiveTraction > 2.0:
+        if speedEfficiency > minSpeedEfficiency:
+            speedEfficiency *= .5
+        jt = max(jt, jitterTolerance)
+
+    targetSpeed = jt * speedEfficiency * totalEffectiveTraction / totalSwinging
+
+    if totalSwinging > jt * totalEffectiveTraction:
+        if speedEfficiency > minSpeedEfficiency:
+            speedEfficiency *= .7
+    elif speed < 1000:
+        speedEfficiency *= 1.3
+
+    # But the speed shoudn't rise too much too quickly, since it would
+    # make the convergence drop dramatically.
+    maxRise = .5
+    speed = speed + min(targetSpeed - speed, maxRise * speed)
+
+    # Apply forces.
+    #
+    # Need to add a case if adjustSizes ("prevent overlap") is
+    # implemented.
+    for n in nodes:
+        swinging = n.mass * sqrt((n.old_dx - n.dx) * (n.old_dx - n.dx) + (n.old_dy - n.dy) * (n.old_dy - n.dy))
+        factor = speed / (1.0 + sqrt(speed * swinging))
+        n.x = n.x + (n.dx * factor)
+        n.y = n.y + (n.dy * factor)
+
+    values = {}
+    values['speed'] = speed
+    values['speedEfficiency'] = speedEfficiency
+
+    return values
 
 
 try:

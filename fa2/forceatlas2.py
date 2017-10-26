@@ -27,7 +27,6 @@
 
 import random
 import time
-from math import sqrt
 
 import numpy
 import scipy
@@ -87,7 +86,7 @@ class ForceAtlas2:
                  scalingRatio=2.0,
                  strongGravityMode=False,
                  gravity=1.0):
-        assert  linLogMode == adjustSizes == multiThreaded == False, "You selected a feature that has not been implemented yet..."
+        assert linLogMode == adjustSizes == multiThreaded == False, "You selected a feature that has not been implemented yet..."
         self.outboundAttractionDistribution = outboundAttractionDistribution
         self.linLogMode = linLogMode
         self.adjustSizes = adjustSizes
@@ -177,13 +176,16 @@ class ForceAtlas2:
         repulsion_timer = Timer(name="Repulsion")
         gravity_timer = Timer(name="Gravity")
         attraction_timer = Timer(name="Attraction")
+        remaining_timer = Timer(name="Remaining")
         # Each iteration of this loop reseprensts a call to goAlgo().
         for _i in range(0, iterations):
+            remaining_timer.start()
             for n in nodes:
                 n.old_dx = n.dx
                 n.old_dy = n.dy
                 n.dx = 0
                 n.dy = 0
+            remaining_timer.stop()
 
             barnes_hut_timer.start()
             # Barnes Hut optimization
@@ -198,8 +200,7 @@ class ForceAtlas2:
 
             repulsion_timer.start()
             if self.barnesHutOptimize:
-                for n in nodes:
-                    rootRegion.applyForce(n, self.barnesHutTheta, self.scalingRatio)
+                rootRegion.applyForceOnNodes(nodes, self.barnesHutTheta, self.scalingRatio)
             else:
                 fa2util.apply_repulsion(nodes, self.scalingRatio)
             repulsion_timer.stop()
@@ -211,63 +212,21 @@ class ForceAtlas2:
             # If other forms of attraction were implemented they would be
             # selected here.
             attraction_timer.start()
-            fa2util.apply_attraction(nodes, edges, self.outboundAttractionDistribution, outboundAttCompensation, self.edgeWeightInfluence)
+            fa2util.apply_attraction(nodes, edges, self.outboundAttractionDistribution, outboundAttCompensation,
+                                     self.edgeWeightInfluence)
             attraction_timer.stop()
 
-            # Auto adjust speed.
-            totalSwinging = 0.0  # How much irregular movement
-            totalEffectiveTraction = 0.0  # How much useful movement
-            for n in nodes:
-                swinging = sqrt((n.old_dx - n.dx) * (n.old_dx - n.dx) + (n.old_dy - n.dy) * (n.old_dy - n.dy))
-                totalSwinging += n.mass * swinging
-                totalEffectiveTraction += .5 * n.mass * sqrt(
-                    (n.old_dx + n.dx) * (n.old_dx + n.dx) + (n.old_dy + n.dy) * (n.old_dy + n.dy))
-
-            # Optimize jitter tolerance.  The 'right' jitter tolerance for
-            # this network. Bigger networks need more tolerance. Denser
-            # networks need less tolerance. Totally empiric.
-            estimatedOptimalJitterTolerance = .05 * sqrt(len(nodes))
-            minJT = sqrt(estimatedOptimalJitterTolerance)
-            maxJT = 10
-            jt = self.jitterTolerance * max(minJT,
-                                            min(maxJT, estimatedOptimalJitterTolerance * totalEffectiveTraction / (
-                                                len(nodes) * len(nodes))))
-
-            minSpeedEfficiency = 0.05
-
-            # Protective against erratic behavior
-            if totalSwinging / totalEffectiveTraction > 2.0:
-                if speedEfficiency > minSpeedEfficiency:
-                    speedEfficiency *= .5
-                jt = max(jt, self.jitterTolerance)
-
-            targetSpeed = jt * speedEfficiency * totalEffectiveTraction / totalSwinging
-
-            if totalSwinging > jt * totalEffectiveTraction:
-                if speedEfficiency > minSpeedEfficiency:
-                    speedEfficiency *= .7
-            elif speed < 1000:
-                speedEfficiency *= 1.3
-
-            # But the speed shoudn't rise too much too quickly, since it would
-            # make the convergence drop dramatically.
-            maxRise = .5
-            speed = speed + min(targetSpeed - speed, maxRise * speed)
-
-            # Apply forces.
-            #
-            # Need to add a case if adjustSizes ("prevent overlap") is
-            # implemented.
-            for n in nodes:
-                swinging = n.mass * sqrt((n.old_dx - n.dx) * (n.old_dx - n.dx) + (n.old_dy - n.dy) * (n.old_dy - n.dy))
-                factor = speed / (1.0 + sqrt(speed * swinging))
-                n.x = n.x + (n.dx * factor)
-                n.y = n.y + (n.dy * factor)
+            remaining_timer.start()
+            values = fa2util.adjustSpeedAndApplyForces(nodes, speed, speedEfficiency, self.jitterTolerance)
+            speed = values['speed']
+            speedEfficiency = values['speedEfficiency']
+            remaining_timer.stop()
 
         barnes_hut_timer.print()
         repulsion_timer.print()
         gravity_timer.print()
         attraction_timer.print()
+        remaining_timer.print()
         return [(n.x, n.y) for n in nodes]
 
     # A layout for NetworkX.

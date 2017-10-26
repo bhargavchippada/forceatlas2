@@ -61,10 +61,16 @@ cdef void strongGravity(Node n, double g, double coefficient=*)
                factor = cython.double)
 cpdef void linAttraction(Node n1, Node n2, double e, bint distributedAttraction, double coefficient=*)
 
+@cython.locals(i = cython.int,
+               j = cython.int,
+               n1 = Node,
+               n2 = Node)
 cpdef void apply_repulsion(list nodes, double coefficient)
 
+@cython.locals(n = Node)
 cpdef void apply_gravity(list nodes, double gravity, bint useStrongGravity=*)
 
+@cython.locals(edge = Edge)
 cpdef void apply_attraction(list nodes, list edges, bint distributedAttraction, double coefficient, double edgeWeightInfluence)
 
 cdef class Region:
@@ -93,4 +99,24 @@ cdef class Region:
 
     @cython.locals(distance = cython.double,
                    subregion = Region)
-    cpdef void applyForce(self, Node n, double theta, double coefficient=*)
+    cdef void applyForce(self, Node n, double theta, double coefficient=*)
+
+    @cython.locals(n = Node)
+    cpdef applyForceOnNodes(self, list nodes, double theta, double coefficient=*)
+
+@cython.locals(totalSwinging = cython.double,
+               totalEffectiveTraction = cython.double,
+               n = Node,
+               swinging = cython.double,
+               totalSwinging = cython.double,
+               totalEffectiveTraction = cython.double,
+               estimatedOptimalJitterTolerance = cython.double,
+               minJT = cython.double,
+               maxJT = cython.double,
+               jt = cython.double,
+               minSpeedEfficiency = cython.double,
+               targetSpeed = cython.double,
+               maxRise = cython.double,
+               factor = cython.double,
+               values = dict)
+cpdef dict adjustSpeedAndApplyForces(list nodes, double speed, double speedEfficiency, double jitterTolerance)
