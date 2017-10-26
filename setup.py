@@ -25,6 +25,6 @@ setup(
     author_email = 'bhargavchippada19@gmail.com',
     url = 'https://github.com/bhargavchippada/forceatlas2',
     packages = ['fa2'],
-    requires = ['numpy', 'scipy'],
+    requires = ['numpy', 'scipy', 'cython'],
     **cythonopts
 )

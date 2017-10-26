@@ -72,7 +72,7 @@ class Timer:
 class ForceAtlas2:
     def __init__(self,
                  # Behavior alternatives
-                 outboundAttractionDistribution=False,  # "Dissuade hubs" # NOT (fully) IMPLEMENTED
+                 outboundAttractionDistribution=False,  # "Dissuade hubs"
                  linLogMode=False,  # NOT IMPLEMENTED
                  adjustSizes=False,  # "Prevent overlap" # NOT IMPLEMENTED
                  edgeWeightInfluence=1.0,
@@ -81,12 +81,13 @@ class ForceAtlas2:
                  jitterTolerance=1.0,  # "Tolerance"
                  barnesHutOptimize=False,
                  barnesHutTheta=1.2,
+                 multiThreaded=False,  # NOT IMPLEMENTED
 
                  # Tuning
                  scalingRatio=2.0,
                  strongGravityMode=False,
                  gravity=1.0):
-        assert outboundAttractionDistribution == linLogMode == adjustSizes == False, "You selected a feature that has not been implemented yet..."
+        assert  linLogMode == adjustSizes == multiThreaded == False, "You selected a feature that has not been implemented yet..."
         self.outboundAttractionDistribution = outboundAttractionDistribution
         self.linLogMode = linLogMode
         self.adjustSizes = adjustSizes
@@ -164,6 +165,9 @@ class ForceAtlas2:
         speed = 1.0
         speedEfficiency = 1.0
         nodes, edges = self.init(G, pos)
+        outboundAttCompensation = 1.0
+        if self.outboundAttractionDistribution:
+            outboundAttCompensation = numpy.mean([n.mass for n in nodes])
         # ================================================================
 
         # Main loop, i.e. goAlgo()
@@ -188,9 +192,6 @@ class ForceAtlas2:
                 rootRegion.buildSubRegions()
             barnes_hut_timer.stop()
 
-            if self.outboundAttractionDistribution:
-                outboundAttCompensation = numpy.mean([n.mass for n in nodes])
-
             # I did not implement parallelization here.  Also, Barnes Hut
             # optimization would change this from "linRepulsion" to another
             # version of the function.
@@ -210,7 +211,7 @@ class ForceAtlas2:
             # If other forms of attraction were implemented they would be
             # selected here.
             attraction_timer.start()
-            fa2util.apply_attraction(nodes, edges, 1.0, self.edgeWeightInfluence)
+            fa2util.apply_attraction(nodes, edges, self.outboundAttractionDistribution, outboundAttCompensation, self.edgeWeightInfluence)
             attraction_timer.stop()
 
             # Auto adjust speed.
