@@ -247,6 +247,16 @@ class Region:
                     subregion.applyForce(n, theta, coefficient)
 
 
+def applyForce_nodes(r, nodes, from_i, barnesHutTheta, coefficient):
+    nodes_dict = {}
+    i = from_i
+    for n in nodes:
+        r.applyForce(n, barnesHutTheta, coefficient)
+        nodes_dict[i] = n
+        i += 1
+    return nodes_dict
+
+
 try:
     import cython
 

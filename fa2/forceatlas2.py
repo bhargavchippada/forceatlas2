@@ -25,9 +25,12 @@
 #
 # Available under the GPLv3
 
+import multiprocessing
 import random
 import time
+from math import floor
 from math import sqrt
+from multiprocessing import Process, Queue
 
 import numpy
 import scipy
@@ -69,6 +72,10 @@ class Timer:
         print(self.name, " took total ", self.total_time, " seconds")
 
 
+def applyForce_nodes_parallel(r, nodes, from_i, barnesHutTheta, coefficient, out_q):
+    out_q.put(fa2util.applyForce_nodes(r, nodes, from_i, barnesHutTheta, coefficient))
+
+
 class ForceAtlas2:
     def __init__(self,
                  # Behavior alternatives
@@ -81,13 +88,13 @@ class ForceAtlas2:
                  jitterTolerance=1.0,  # "Tolerance"
                  barnesHutOptimize=False,
                  barnesHutTheta=1.2,
-                 multiThreaded=False,  # NOT IMPLEMENTED
+                 multiThreaded=False,
 
                  # Tuning
                  scalingRatio=2.0,
                  strongGravityMode=False,
                  gravity=1.0):
-        assert  linLogMode == adjustSizes == multiThreaded == False, "You selected a feature that has not been implemented yet..."
+        assert linLogMode == adjustSizes == False, "You selected a feature that has not been implemented yet..."
         self.outboundAttractionDistribution = outboundAttractionDistribution
         self.linLogMode = linLogMode
         self.adjustSizes = adjustSizes
@@ -95,9 +102,12 @@ class ForceAtlas2:
         self.jitterTolerance = jitterTolerance
         self.barnesHutOptimize = barnesHutOptimize
         self.barnesHutTheta = barnesHutTheta
+        self.multiThreaded = multiThreaded
         self.scalingRatio = scalingRatio
         self.strongGravityMode = strongGravityMode
         self.gravity = gravity
+        self.nodes = None
+        self.edges = None
 
     def init(self,
              G,  # a graph in 2D numpy ndarray format (or) scipy sparse matrix format
@@ -149,7 +159,8 @@ class ForceAtlas2:
             edge.weight = G[tuple(e)]
             edges.append(edge)
 
-        return nodes, edges
+        self.nodes = nodes
+        self.edges = edges
 
     def forceatlas2(self,
                     G,  # a graph in 2D numpy ndarray format (or) scipy sparse matrix format
@@ -164,10 +175,10 @@ class ForceAtlas2:
         # algorithm runs to help ensure convergence.
         speed = 1.0
         speedEfficiency = 1.0
-        nodes, edges = self.init(G, pos)
+        self.init(G, pos)
         outboundAttCompensation = 1.0
         if self.outboundAttractionDistribution:
-            outboundAttCompensation = numpy.mean([n.mass for n in nodes])
+            outboundAttCompensation = numpy.mean([n.mass for n in self.nodes])
         # ================================================================
 
         # Main loop, i.e. goAlgo()
@@ -179,7 +190,7 @@ class ForceAtlas2:
         attraction_timer = Timer(name="Attraction")
         # Each iteration of this loop reseprensts a call to goAlgo().
         for _i in range(0, iterations):
-            for n in nodes:
+            for n in self.nodes:
                 n.old_dx = n.dx
                 n.old_dy = n.dy
                 n.dx = 0
@@ -188,7 +199,7 @@ class ForceAtlas2:
             barnes_hut_timer.start()
             # Barnes Hut optimization
             if self.barnesHutOptimize:
-                rootRegion = fa2util.Region(nodes)
+                rootRegion = fa2util.Region(self.nodes)
                 rootRegion.buildSubRegions()
             barnes_hut_timer.stop()
 
@@ -198,26 +209,54 @@ class ForceAtlas2:
 
             repulsion_timer.start()
             if self.barnesHutOptimize:
-                for n in nodes:
-                    rootRegion.applyForce(n, self.barnesHutTheta, self.scalingRatio)
+                if self.multiThreaded:
+                    taskCount = multiprocessing.cpu_count()
+                    out_q = Queue()
+                    procs = []
+
+                    t = float(taskCount)
+                    total_procs = 0
+                    while t > 0:
+                        from_i = int(floor(len(self.nodes) * (t - 1) / taskCount))
+                        to_j = int(floor(len(self.nodes) * t / taskCount))
+                        if from_i == to_j:
+                            break
+                        process = Process(target=applyForce_nodes_parallel, args=(
+                            rootRegion, self.nodes[from_i:to_j], from_i, self.barnesHutTheta, self.scalingRatio, out_q))
+                        procs.append(process)
+                        process.start()
+                        t -= 1
+                        total_procs += 1
+
+                    for i in range(total_procs):
+                        nodes_dict = out_q.get()
+                        for key, value in nodes_dict.items():
+                            self.nodes[key] = value
+
+                    for p in procs:
+                        p.join()
+                else:
+                    [rootRegion.applyForce(n, self.barnesHutTheta, self.scalingRatio) for n in self.nodes]
             else:
-                fa2util.apply_repulsion(nodes, self.scalingRatio)
+                fa2util.apply_repulsion(self.nodes, self.scalingRatio)
             repulsion_timer.stop()
 
             gravity_timer.start()
-            fa2util.apply_gravity(nodes, self.gravity, useStrongGravity=self.strongGravityMode)
+            fa2util.apply_gravity(self.nodes, self.gravity, useStrongGravity=self.strongGravityMode)
             gravity_timer.stop()
 
             # If other forms of attraction were implemented they would be
             # selected here.
             attraction_timer.start()
-            fa2util.apply_attraction(nodes, edges, self.outboundAttractionDistribution, outboundAttCompensation, self.edgeWeightInfluence)
+            fa2util.apply_attraction(self.nodes, self.edges, self.outboundAttractionDistribution,
+                                     outboundAttCompensation,
+                                     self.edgeWeightInfluence)
             attraction_timer.stop()
 
             # Auto adjust speed.
             totalSwinging = 0.0  # How much irregular movement
             totalEffectiveTraction = 0.0  # How much useful movement
-            for n in nodes:
+            for n in self.nodes:
                 swinging = sqrt((n.old_dx - n.dx) * (n.old_dx - n.dx) + (n.old_dy - n.dy) * (n.old_dy - n.dy))
                 totalSwinging += n.mass * swinging
                 totalEffectiveTraction += .5 * n.mass * sqrt(
@@ -226,12 +265,12 @@ class ForceAtlas2:
             # Optimize jitter tolerance.  The 'right' jitter tolerance for
             # this network. Bigger networks need more tolerance. Denser
             # networks need less tolerance. Totally empiric.
-            estimatedOptimalJitterTolerance = .05 * sqrt(len(nodes))
+            estimatedOptimalJitterTolerance = .05 * sqrt(len(self.nodes))
             minJT = sqrt(estimatedOptimalJitterTolerance)
             maxJT = 10
             jt = self.jitterTolerance * max(minJT,
                                             min(maxJT, estimatedOptimalJitterTolerance * totalEffectiveTraction / (
-                                                len(nodes) * len(nodes))))
+                                                len(self.nodes) * len(self.nodes))))
 
             minSpeedEfficiency = 0.05
 
@@ -258,7 +297,7 @@ class ForceAtlas2:
             #
             # Need to add a case if adjustSizes ("prevent overlap") is
             # implemented.
-            for n in nodes:
+            for n in self.nodes:
                 swinging = n.mass * sqrt((n.old_dx - n.dx) * (n.old_dx - n.dx) + (n.old_dy - n.dy) * (n.old_dy - n.dy))
                 factor = speed / (1.0 + sqrt(speed * swinging))
                 n.x = n.x + (n.dx * factor)
@@ -268,7 +307,7 @@ class ForceAtlas2:
         repulsion_timer.print()
         gravity_timer.print()
         attraction_timer.print()
-        return [(n.x, n.y) for n in nodes]
+        return [(n.x, n.y) for n in self.nodes]
 
     # A layout for NetworkX.
     #

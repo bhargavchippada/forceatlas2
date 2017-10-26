@@ -94,3 +94,8 @@ cdef class Region:
     @cython.locals(distance = cython.double,
                    subregion = Region)
     cpdef void applyForce(self, Node n, double theta, double coefficient=*)
+
+@cython.locals(nodes_dict = dict,
+               i = cython.int,
+               n = Node)
+cpdef dict applyForce_nodes(Region r, list nodes, int from_i, double barnesHutTheta, double coefficient)
