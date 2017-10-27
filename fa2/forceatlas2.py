@@ -47,14 +47,14 @@ class Timer:
 class ForceAtlas2:
     def __init__(self,
                  # Behavior alternatives
-                 outboundAttractionDistribution=False,  # "Dissuade hubs"
+                 outboundAttractionDistribution=False,  # Dissuade hubs
                  linLogMode=False,  # NOT IMPLEMENTED
-                 adjustSizes=False,  # "Prevent overlap" # NOT IMPLEMENTED
+                 adjustSizes=False,  # Prevent overlap (NOT IMPLEMENTED)
                  edgeWeightInfluence=1.0,
 
                  # Performance
-                 jitterTolerance=1.0,  # "Tolerance"
-                 barnesHutOptimize=False,
+                 jitterTolerance=1.0,  # Tolerance
+                 barnesHutOptimize=True,
                  barnesHutTheta=1.2,
                  multiThreaded=False,  # NOT IMPLEMENTED
 
