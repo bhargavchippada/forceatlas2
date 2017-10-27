@@ -88,6 +88,9 @@ You can also take a look at forceatlas2.py file for understanding the ForceAtlas
 ## Documentation
 You will find all the documentation in the source code
 
+## Contributors
+Contributions are highly welcome. Please submit your pull requests and become a collaborator.
+
 ## Copyright
 Copyright (C) 2017 Bhargav Chippada <bhargavchippada19@gmail.com>. Licensed under the GNU GPLv3.
 
