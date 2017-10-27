@@ -6,6 +6,7 @@ A port of Gephi’s Force Atlas 2 layout algorithm to Python 2 and Python
 implementation available with most of the features complete. It also
 supports Barnes Hut approximation for maximum speedup.
 
+ForceAtlas2 is a very fast layout algorithm for force directed graphs.
 The implementation is based on this `paper`_ and the corresponding
 `gephi-java-code`_. ForceAtlas2 algorithm is really fast compared to the
 fruchterman reingold algorithm (spring layout) of networkx and scales

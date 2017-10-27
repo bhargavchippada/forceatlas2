@@ -41,6 +41,8 @@ setup(
     author='Bhargav Chippada',
     author_email='bhargavchippada19@gmail.com',
     url='https://github.com/bhargavchippada/forceatlas2',
+    download_url='https://github.com/bhargavchippada/forceatlas2/archive/v0.1.tar.gz',
+    keywords=['forceatlas2', 'networkx', 'force-directed-graph', 'force-layout', 'graph'],
     packages=['fa2'],
     classifiers=[
         'Development Status :: 5 - Production/Stable',
