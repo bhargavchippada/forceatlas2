@@ -3,12 +3,12 @@
 # (see the "Pure Python" section of the Cython manual).  In essence,
 # it provides types for function definitions and then, if cython is
 # available, it uses these types to optimize normal python code.  It
-# is associated with the fa2util.py file.  
+# is associated with the fa2util.py file.
 #
 # IF ANY CHANGES ARE MADE TO fa2util.py, THE CHANGES MUST BE REFLECTED
 # HERE!!
 #
-# Copyright 2017 Bhargav Chippada <bhargavchippada19@gmail.com>
+# Copyright (C) 2017 Bhargav Chippada <bhargavchippada19@gmail.com>
 #
 # Available under the GPLv3
 

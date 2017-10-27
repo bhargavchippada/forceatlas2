@@ -1,27 +1,20 @@
-# This is a python implementation of the ForceAtlas2 plugin from Gephi
+# This is the fastest python implementation of the ForceAtlas2 plugin from Gephi
 # intended to be used with networkx, but is in theory independent of
 # it since it only relies on the adjacency matrix.  This
 # implementation is based directly on the Gephi plugin:
 #
 # https://github.com/gephi/gephi/blob/master/modules/LayoutPlugin/src/main/java/org/gephi/layout/plugin/forceAtlas2/ForceAtlas2.java
 #
-# This is in contrast to an implementation I found in R (which uses
-# strange parametrization) and to one in Python (which is based on the
-# spring_layout).  The python implementation did not seem to work, and
-# I did not try the R implementation because I didn't want to spend a
-# long time setting up a messy pipe system only to find that the
-# algorithm was as wrong as the python one.  
-#
 # For simplicity and for keeping code in sync with upstream, I have
 # reused as many of the variable/function names as possible, even when
-# they are in a more java-like style (e.g. camalcase)
+# they are in a more java-like style (e.g. camelcase)
 #
-# I wrote this because I was unable to find a graph layout algorithm
-# in Python that clearly showed modular structure.
+# I wrote this because I wanted an almost feature complete and fast implementation
+# of ForceAtlas2 algorithm in python
 #
 # NOTES: Currently, this only works for unweighted, undirected graphs.
 #
-# Copyright 2017 Bhargav Chippada <bhargavchippada19@gmail.com>
+# Copyright (C) 2017 Bhargav Chippada <bhargavchippada19@gmail.com>
 #
 # Available under the GPLv3
 
@@ -30,27 +23,10 @@ import time
 
 import numpy
 import scipy
+from tqdm import tqdm
 
 from . import fa2util
 
-
-# Default parameters
-# ==================
-
-
-# Given an adjacency matrix, this function computes the node positions
-# according to the ForceAtlas2 layout algorithm.  It takes the same
-# arguments that one would give to the ForceAtlas2 algorithm in Gephi.
-# Not all of them are implemented.  See below for a description of
-# each parameter and whether or not it has been implemented.
-#
-# This function will return a list of X-Y coordinate tuples, ordered
-# in the same way as the rows/columns in the input matrix.
-#
-# The only reason you would want to run this directly is if you don't
-# use networkx.  In this case, you'll likely need to convert the
-# output to a more usable format.  If you do use networkx, use the
-# "forceatlas2_networkx_layout" function below.
 
 class Timer:
     def __init__(self, name="Timer"):
@@ -65,7 +41,7 @@ class Timer:
         self.total_time += (time.time() - self.start_time)
 
     def print(self):
-        print(self.name, " took total ", self.total_time, " seconds")
+        print(self.name, " took ", "%.2f" % self.total_time, " seconds")
 
 
 class ForceAtlas2:
@@ -85,7 +61,10 @@ class ForceAtlas2:
                  # Tuning
                  scalingRatio=2.0,
                  strongGravityMode=False,
-                 gravity=1.0):
+                 gravity=1.0,
+
+                 # Log
+                 verbose=True):
         assert linLogMode == adjustSizes == multiThreaded == False, "You selected a feature that has not been implemented yet..."
         self.outboundAttractionDistribution = outboundAttractionDistribution
         self.linLogMode = linLogMode
@@ -97,6 +76,7 @@ class ForceAtlas2:
         self.scalingRatio = scalingRatio
         self.strongGravityMode = strongGravityMode
         self.gravity = gravity
+        self.verbose = verbose
 
     def init(self,
              G,  # a graph in 2D numpy ndarray format (or) scipy sparse matrix format
@@ -150,6 +130,22 @@ class ForceAtlas2:
 
         return nodes, edges
 
+    # Given an adjacency matrix, this function computes the node positions
+    # according to the ForceAtlas2 layout algorithm.  It takes the same
+    # arguments that one would give to the ForceAtlas2 algorithm in Gephi.
+    # Not all of them are implemented.  See below for a description of
+    # each parameter and whether or not it has been implemented.
+    #
+    # This function will return a list of X-Y coordinate tuples, ordered
+    # in the same way as the rows/columns in the input matrix.
+    #
+    # The only reason you would want to run this directly is if you don't
+    # use networkx.  In this case, you'll likely need to convert the
+    # output to a more usable format.  If you do use networkx, use the
+    # "forceatlas2_networkx_layout" function below.
+    #
+    # Currently, only undirected graphs are supported so the adjacency matrix
+    # should be symmetric.
     def forceatlas2(self,
                     G,  # a graph in 2D numpy ndarray format (or) scipy sparse matrix format
                     pos=None,  # Array of initial positions
@@ -170,70 +166,73 @@ class ForceAtlas2:
         # ================================================================
 
         # Main loop, i.e. goAlgo()
-        # ========================
+        # ================================================================
 
-        barnes_hut_timer = Timer(name="BarnesHut")
-        repulsion_timer = Timer(name="Repulsion")
-        gravity_timer = Timer(name="Gravity")
-        attraction_timer = Timer(name="Attraction")
-        remaining_timer = Timer(name="Remaining")
-        # Each iteration of this loop reseprensts a call to goAlgo().
-        for _i in range(0, iterations):
-            remaining_timer.start()
+        barneshut_timer = Timer(name="BarnesHut Approximation")
+        repulsion_timer = Timer(name="Repulsion forces")
+        gravity_timer = Timer(name="Gravitational forces")
+        attraction_timer = Timer(name="Attraction forces")
+        applyforces_timer = Timer(name="AdjustSpeedAndApplyForces step")
+
+        # Each iteration of this loop represents a call to goAlgo().
+        niters = range(iterations)
+        if self.verbose:
+            niters = tqdm(niters)
+        for _i in niters:
             for n in nodes:
                 n.old_dx = n.dx
                 n.old_dy = n.dy
                 n.dx = 0
                 n.dy = 0
-            remaining_timer.stop()
 
-            barnes_hut_timer.start()
             # Barnes Hut optimization
             if self.barnesHutOptimize:
+                barneshut_timer.start()
                 rootRegion = fa2util.Region(nodes)
                 rootRegion.buildSubRegions()
-            barnes_hut_timer.stop()
+                barneshut_timer.stop()
 
-            # I did not implement parallelization here.  Also, Barnes Hut
-            # optimization would change this from "linRepulsion" to another
-            # version of the function.
-
+            # Charge repulsion forces
             repulsion_timer.start()
+            # parallelization should be implemented here
             if self.barnesHutOptimize:
                 rootRegion.applyForceOnNodes(nodes, self.barnesHutTheta, self.scalingRatio)
             else:
                 fa2util.apply_repulsion(nodes, self.scalingRatio)
             repulsion_timer.stop()
 
+            # Gravitational forces
             gravity_timer.start()
             fa2util.apply_gravity(nodes, self.gravity, useStrongGravity=self.strongGravityMode)
             gravity_timer.stop()
 
-            # If other forms of attraction were implemented they would be
-            # selected here.
+            # If other forms of attraction were implemented they would be selected here.
             attraction_timer.start()
             fa2util.apply_attraction(nodes, edges, self.outboundAttractionDistribution, outboundAttCompensation,
                                      self.edgeWeightInfluence)
             attraction_timer.stop()
 
-            remaining_timer.start()
+            # Adjust speeds and apply forces
+            applyforces_timer.start()
             values = fa2util.adjustSpeedAndApplyForces(nodes, speed, speedEfficiency, self.jitterTolerance)
             speed = values['speed']
             speedEfficiency = values['speedEfficiency']
-            remaining_timer.stop()
+            applyforces_timer.stop()
 
-        barnes_hut_timer.print()
-        repulsion_timer.print()
-        gravity_timer.print()
-        attraction_timer.print()
-        remaining_timer.print()
+        if self.verbose:
+            if self.barnesHutOptimize:
+                barneshut_timer.print()
+            repulsion_timer.print()
+            gravity_timer.print()
+            attraction_timer.print()
+            applyforces_timer.print()
+        # ================================================================
         return [(n.x, n.y) for n in nodes]
 
     # A layout for NetworkX.
     #
     # This function returns a NetworkX layout, which is really just a
-    # dictionary of node positions (2D X-Y tuples) indexed by the node
-    # name.
+    # dictionary of node positions (2D X-Y tuples) indexed by the node name.
     def forceatlas2_networkx_layout(self, G, pos=None, iterations=100):
         import networkx
         assert isinstance(G, networkx.classes.graph.Graph), "Not a networkx graph"

@@ -3,10 +3,10 @@
 # don't have Cython, this will run normally.  However, if you use
 # Cython, you'll get speed boosts from 10-100x automatically.
 #
-# The only catch is that IF YOU MODIFY THIS FILE, YOU MUST ALSO MODIFY
+# THE ONLY CATCH IS THAT IF YOU MODIFY THIS FILE, YOU MUST ALSO MODIFY
 # fa2util.pxd TO REFLECT ANY CHANGES IN FUNCTION DEFINITIONS!
 #
-# Copyright 2017 Bhargav Chippada <bhargavchippada19@gmail.com>
+# Copyright (C) 2017 Bhargav Chippada <bhargavchippada19@gmail.com>
 #
 # Available under the GPLv3
 
@@ -25,8 +25,7 @@ class Node:
         self.y = 0.0
 
 
-# This is not in the original java code, but it makes it easier to
-# deal with edges.
+# This is not in the original java code, but it makes it easier to deal with edges
 class Edge:
     def __init__(self):
         self.node1 = -1
@@ -38,8 +37,7 @@ class Edge:
 # =============================================
 
 # Repulsion function.  `n1` and `n2` should be nodes.  This will
-# adjust the dx and dy values of `n1` (and optionally `n2`).  It does
-# not return anything.
+# adjust the dx and dy values of `n1`  `n2`
 def linRepulsion(n1, n2, coefficient=0):
     xDist = n1.x - n2.x
     yDist = n1.y - n2.y
@@ -53,6 +51,7 @@ def linRepulsion(n1, n2, coefficient=0):
         n2.dy -= yDist * factor
 
 
+# Repulsion function. 'n' is node and 'r' is region
 def linRepulsion_region(n, r, coefficient=0):
     xDist = n.x - r.massCenterX
     yDist = n.y - r.massCenterY
@@ -68,7 +67,7 @@ def linRepulsion_region(n, r, coefficient=0):
 # within the linRepulsion function in the original gephi java code,
 # which doesn't make any sense (considering a. gravity is unrelated to
 # nodes repelling each other, and b. gravity is actually an
-# attraction).
+# attraction)
 def linGravity(n, g):
     xDist = n.x
     yDist = n.y
@@ -80,7 +79,7 @@ def linGravity(n, g):
         n.dy -= yDist * factor
 
 
-# Strong gravity force function.  `n` should be a node, and `g`
+# Strong gravity force function. `n` should be a node, and `g`
 # should be a constant by which to apply the force.
 def strongGravity(n, g, coefficient=0):
     xDist = n.x
@@ -93,7 +92,7 @@ def strongGravity(n, g, coefficient=0):
 
 
 # Attraction function.  `n1` and `n2` should be nodes.  This will
-# adjust the dx and dy values of `n1` (and optionally `n2`).  It does
+# adjust the dx and dy values of `n1` and `n2`.  It does
 # not return anything.
 def linAttraction(n1, n2, e, distributedAttraction, coefficient=0):
     xDist = n1.x - n2.x
@@ -110,9 +109,7 @@ def linAttraction(n1, n2, e, distributedAttraction, coefficient=0):
 
 # The following functions iterate through the nodes or edges and apply
 # the forces directly to the node objects.  These iterations are here
-# instead of the main file because Python is slow with loops.  Where
-# relevant, they also contain the logic to select which version of the
-# force function to use.
+# instead of the main file because Python is slow with loops.
 def apply_repulsion(nodes, coefficient):
     i = 0
     for n1 in nodes:
@@ -148,6 +145,7 @@ def apply_attraction(nodes, edges, distributedAttraction, coefficient, edgeWeigh
                           distributedAttraction, coefficient)
 
 
+# For Barnes Hut Optimization
 class Region:
     def __init__(self, nodes):
         self.mass = 0.0
@@ -257,6 +255,7 @@ class Region:
             self.applyForce(n, theta, coefficient)
 
 
+# Adjust speed and apply forces step
 def adjustSpeedAndApplyForces(nodes, speed, speedEfficiency, jitterTolerance):
     # Auto adjust speed.
     totalSwinging = 0.0  # How much irregular movement
