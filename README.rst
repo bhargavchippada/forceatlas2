@@ -8,7 +8,7 @@ supports Barnes Hut approximation for maximum speedup.
 
 ForceAtlas2 is a very fast layout algorithm for force directed graphs.
 The implementation is based on this `paper`_ and the corresponding
-`gephi-java-code`_. ForceAtlas2 algorithm is really fast compared to the
+`gephi-java-code`_. Its really quick compared to the
 fruchterman reingold algorithm (spring layout) of networkx and scales
 well to high number of nodes (>10000).
 
@@ -27,8 +27,7 @@ To build and install run from source:
 
     python setup.py install
 
-Cython is highly recommended as it will speed up by a factor of 10-100x depending on the graph
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+**Cython is highly recommended if you are buidling from source as it will speed up by a factor of 10-100x depending on the graph**
 
 Dependencies
 ~~~~~~~~~~~~
@@ -36,7 +35,7 @@ Dependencies
 -  numpy (adjacency matrix as complete matrix)
 -  scipy (adjacency matrix as sparse matrix)
 -  tqdm (progressbar)
--  cython (10-100x speedup)
+-  Cython (10-100x speedup)
 -  networkx (To use the NetworkX wrapper function, you obviously need
    NetworkX)
 
@@ -91,8 +90,8 @@ ForceAtlas2 class.
                               strongGravityMode=False,
                               gravity=1.0,
 
-                          # Log
-                          verbose=True)
+                              # Log
+                              verbose=True)
 
     positions = forceatlas2.forceatlas2_networkx_layout(G, pos=None, iterations=2000)
     nx.draw_networkx(G, positions, cmap=plt.get_cmap('jet'), node_size=50, with_labels=False)
@@ -134,8 +133,10 @@ become a collaborator.
 Copyright
 ---------
 
-Copyright (C) 2017 Bhargav Chippada bhargavchippada19@gmail.com.
-Licensed under the GNU GPLv3.
+::
+
+    Copyright (C) 2017 Bhargav Chippada bhargavchippada19@gmail.com.
+    Licensed under the GNU GPLv3.
 
 The files are heavily based on the java files included in Gephi, git
 revision 2b9a7c8 and Max Shinn’s port to python of the algorithm. Here I
