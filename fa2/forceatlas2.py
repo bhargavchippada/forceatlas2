@@ -40,7 +40,7 @@ class Timer:
     def stop(self):
         self.total_time += (time.time() - self.start_time)
 
-    def print(self):
+    def display(self):
         print(self.name, " took ", "%.2f" % self.total_time, " seconds")
 
 
@@ -221,11 +221,11 @@ class ForceAtlas2:
 
         if self.verbose:
             if self.barnesHutOptimize:
-                barneshut_timer.print()
-            repulsion_timer.print()
-            gravity_timer.print()
-            attraction_timer.print()
-            applyforces_timer.print()
+                barneshut_timer.display()
+            repulsion_timer.display()
+            gravity_timer.display()
+            attraction_timer.display()
+            applyforces_timer.display()
         # ================================================================
         return [(n.x, n.y) for n in nodes]
 
