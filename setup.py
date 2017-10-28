@@ -14,6 +14,7 @@ with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
 
 if path.isfile(path.join(here, 'fa2/fa2util.c')):
     # cython build locally and add fa2/fa2util.c to MANIFEST or fa2.egg-info/SOURCES.txt
+    # run: python setup.py build_ext --inplace
     ext_modules = [Extension('fa2.fa2util', ['fa2/fa2util.c'])]
     cmdclass = {}
     cythonopts = {"ext_modules": ext_modules,
@@ -34,13 +35,13 @@ else:
 
 setup(
     name='fa2',
-    version='0.1.9.1',
+    version='0.2',
     description='The fastest ForceAtlas2 algorithm for Python (and NetworkX)',
     long_description=long_description,
     author='Bhargav Chippada',
     author_email='bhargavchippada19@gmail.com',
     url='https://github.com/bhargavchippada/forceatlas2',
-    download_url='https://github.com/bhargavchippada/forceatlas2/archive/v0.1.tar.gz',
+    download_url='https://github.com/bhargavchippada/forceatlas2/archive/v0.2.tar.gz',
     keywords=['forceatlas2', 'networkx', 'force-directed-graph', 'force-layout', 'graph'],
     packages=['fa2'],
     classifiers=[
