@@ -49,7 +49,7 @@ class contains two important methods:
 
 .. code:: python
 
-    forceatlas2 (G, pos, iteraions)
+    forceatlas2 (G, pos, iterations)
     # G is a graph in 2D numpy ndarray format (or) scipy sparse matrix format
     # pos is a numpy array (Nx2) of initial positions of nodes
     # iterations is num of iterations to run the algorithm
