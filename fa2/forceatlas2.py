@@ -244,3 +244,34 @@ class ForceAtlas2:
             poslist = numpy.asarray([pos[i] for i in G.nodes()])
             l = self.forceatlas2(M, pos=poslist, iterations=iterations)
         return dict(zip(G.nodes(), l))
+
+    # A layout for igraph.
+    #
+    # This function returns an igraph layout
+    def forceatlas2_igraph_layout(self, G, pos=None, iterations=100, weight_attr=None):
+
+        from scipy.sparse import csr_matrix
+        import igraph
+
+        # code from https://github.com/igraph/python-igraph/issues/72
+        def to_sparse(graph, weight_attr=None):
+            edges = graph.get_edgelist()
+            if weight_attr is None:
+                weights = [1] * len(edges)
+            else:
+                weights = graph.es[weight_attr]
+            if not graph.is_directed():
+                edges.extend([(v, u) for u, v in edges])
+                weights.extend(weights)
+            return csr_matrix((weights, zip(*edges)))
+
+        assert isinstance(G, igraph.Graph), "Not a igraph graph"
+        assert isinstance(pos, (list, numpy.ndarray)) or (pos is None), "pos must be a list or numpy array"
+
+        if isinstance(pos, list):
+            pos = numpy.array(pos)
+
+        adj = to_sparse(G, weight_attr)
+        coords = self.forceatlas2(adj, pos=pos, iterations=iterations)
+
+        return igraph.layout.Layout(coords, 2)
