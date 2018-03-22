@@ -12,7 +12,7 @@
 # I wrote this because I wanted an almost feature complete and fast implementation
 # of ForceAtlas2 algorithm in python
 #
-# NOTES: Currently, this only works for unweighted, undirected graphs.
+# NOTES: Currently, this only works for weighted undirected graphs.
 #
 # Copyright (C) 2017 Bhargav Chippada <bhargavchippada19@gmail.com>
 #
