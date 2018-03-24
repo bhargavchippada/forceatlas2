@@ -284,7 +284,10 @@ def adjustSpeedAndApplyForces(nodes, speed, speedEfficiency, jitterTolerance):
             speedEfficiency *= .5
         jt = max(jt, jitterTolerance)
 
-    targetSpeed = jt * speedEfficiency * totalEffectiveTraction / totalSwinging
+    if totalSwinging == 0:
+        targetSpeed = 1
+    else:
+        targetSpeed = jt * speedEfficiency * totalEffectiveTraction / totalSwinging
 
     if totalSwinging > jt * totalEffectiveTraction:
         if speedEfficiency > minSpeedEfficiency:
