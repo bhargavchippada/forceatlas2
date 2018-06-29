@@ -65,7 +65,7 @@ class ForceAtlas2:
 
                  # Log
                  verbose=True):
-        assert linLogMode == adjustSizes == multiThreaded == False, "You selected a feature that has not been implemented yet..."
+        assert linLogMode == multiThreaded == False, "You selected a feature that has not been implemented yet..."
         self.outboundAttractionDistribution = outboundAttractionDistribution
         self.linLogMode = linLogMode
         self.adjustSizes = adjustSizes
@@ -80,7 +80,8 @@ class ForceAtlas2:
 
     def init(self,
              G,  # a graph in 2D numpy ndarray format (or) scipy sparse matrix format
-             pos=None  # Array of initial positions
+             pos=None,  # Array of initial positions
+             sizes=None # Array of node sizes 
              ):
         isSparse = False
         if isinstance(G, numpy.ndarray):
@@ -96,6 +97,8 @@ class ForceAtlas2:
             isSparse = True
         else:
             assert False, "G is not numpy ndarray or scipy sparse matrix"
+            
+        assert isinstance(sizes, numpy.ndarray) or (sizes is None), "Invalid node sizes"
 
         # Put nodes into a data structure we can understand
         nodes = []
@@ -115,6 +118,9 @@ class ForceAtlas2:
             else:
                 n.x = pos[i][0]
                 n.y = pos[i][1]
+
+            if sizes is not None:
+                n.size = sizes[i]
             nodes.append(n)
 
         # Put edges into a data structure we can understand
@@ -149,6 +155,7 @@ class ForceAtlas2:
     def forceatlas2(self,
                     G,  # a graph in 2D numpy ndarray format (or) scipy sparse matrix format
                     pos=None,  # Array of initial positions
+                    sizes=None, # Array of node sizes (if self.adjustSizes=True)
                     iterations=100  # Number of times to iterate the main loop
                     ):
         # Initializing, initAlgo()
@@ -159,7 +166,7 @@ class ForceAtlas2:
         # algorithm runs to help ensure convergence.
         speed = 1.0
         speedEfficiency = 1.0
-        nodes, edges = self.init(G, pos)
+        nodes, edges = self.init(G, pos, sizes)
         outboundAttCompensation = 1.0
         if self.outboundAttractionDistribution:
             outboundAttCompensation = numpy.mean([n.mass for n in nodes])
@@ -196,9 +203,9 @@ class ForceAtlas2:
             repulsion_timer.start()
             # parallelization should be implemented here
             if self.barnesHutOptimize:
-                rootRegion.applyForceOnNodes(nodes, self.barnesHutTheta, self.scalingRatio)
+                rootRegion.applyForceOnNodes(nodes, self.barnesHutTheta, self.scalingRatio, anticollision=self.adjustSizes)
             else:
-                fa2util.apply_repulsion(nodes, self.scalingRatio)
+                fa2util.apply_repulsion(nodes, self.scalingRatio, anticollision=self.adjustSizes)
             repulsion_timer.stop()
 
             # Gravitational forces
@@ -209,12 +216,12 @@ class ForceAtlas2:
             # If other forms of attraction were implemented they would be selected here.
             attraction_timer.start()
             fa2util.apply_attraction(nodes, edges, self.outboundAttractionDistribution, outboundAttCompensation,
-                                     self.edgeWeightInfluence)
+                                     self.edgeWeightInfluence, anticollision=self.adjustSizes)
             attraction_timer.stop()
 
             # Adjust speeds and apply forces
             applyforces_timer.start()
-            values = fa2util.adjustSpeedAndApplyForces(nodes, speed, speedEfficiency, self.jitterTolerance)
+            values = fa2util.adjustSpeedAndApplyForces(nodes, speed, speedEfficiency, self.jitterTolerance, anticollision=self.adjustSizes)
             speed = values['speed']
             speedEfficiency = values['speedEfficiency']
             applyforces_timer.stop()
@@ -233,14 +240,24 @@ class ForceAtlas2:
     #
     # This function returns a NetworkX layout, which is really just a
     # dictionary of node positions (2D X-Y tuples) indexed by the node name.
-    def forceatlas2_networkx_layout(self, G, pos=None, iterations=100):
+    def forceatlas2_networkx_layout(self, G, pos=None, sizes=None, iterations=100):
         import networkx
         assert isinstance(G, networkx.classes.graph.Graph), "Not a networkx graph"
         assert isinstance(pos, dict) or (pos is None), "pos must be specified as a dictionary, as in networkx"
+        if self.adjustSizes:
+            isinstance(sizes, dict), "adjustSizes=True requires a sizes dict to be passed"
+
         M = networkx.to_scipy_sparse_matrix(G, dtype='f', format='lil')
+        
+        if sizes is not None:
+            sizelist =  numpy.asarray([sizes[i] for i in G.nodes()])
+        else:
+            sizelist = None
+
         if pos is None:
-            l = self.forceatlas2(M, pos=None, iterations=iterations)
+            l = self.forceatlas2(M, pos=None, sizes=sizelist, iterations=iterations)
         else:
             poslist = numpy.asarray([pos[i] for i in G.nodes()])
-            l = self.forceatlas2(M, pos=poslist, iterations=iterations)
+            l = self.forceatlas2(M, pos=poslist, sizes=sizelist, iterations=iterations)
+
         return dict(zip(G.nodes(), l))
