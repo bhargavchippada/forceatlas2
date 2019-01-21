@@ -165,10 +165,10 @@ class Region:
                 self.mass += n.mass
                 massSumX += n.x * n.mass
                 massSumY += n.y * n.mass
-            self.massCenterX = massSumX / self.mass;
-            self.massCenterY = massSumY / self.mass;
+            self.massCenterX = massSumX / self.mass
+            self.massCenterY = massSumY / self.mass
 
-            self.size = 0.0;
+            self.size = 0.0
             for n in self.nodes:
                 distance = sqrt((n.x - self.massCenterX) ** 2 + (n.y - self.massCenterY) ** 2)
                 self.size = max(self.size, 2 * distance)

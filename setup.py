@@ -2,9 +2,8 @@ from codecs import open
 from os import path
 
 from setuptools import setup
-from setuptools.extension import Extension
 
-print("Installing fa2 package (fastest forceatlas2 python implementation)")
+print("Installing fa2 package (fastest forceatlas2 python implementation)\n")
 
 here = path.abspath(path.dirname(__file__))
 
@@ -12,30 +11,40 @@ here = path.abspath(path.dirname(__file__))
 with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
     long_description = f.read()
 
-if path.isfile(path.join(here, 'fa2/fa2util.c')):
-    # cython build locally and add fa2/fa2util.c to MANIFEST or fa2.egg-info/SOURCES.txt
-    # run: python setup.py build_ext --inplace
+print(">>>> Cython is installed?")
+try:
+    from Cython.Distutils import Extension
+    from Cython.Build import build_ext
+    USE_CYTHON = True
+    print('Yes\n')
+except ImportError:
+    from setuptools.extension import Extension
+    USE_CYTHON = False
+    print('Cython is not installed; using pre-generated C files if available')
+    print('Please install Cython first and try again if you face any installation problems\n')
+    print(">>>> Are pre-generated C files available?")
+
+if USE_CYTHON:
+    ext_modules = [Extension('fa2.fa2util', ['fa2/fa2util.py', 'fa2/fa2util.pxd'], cython_directives={'language_level' : 3})]
+    cmdclass = {'build_ext': build_ext}
+    opts = {"ext_modules": ext_modules, "cmdclass": cmdclass}
+elif path.isfile(path.join(here, 'fa2/fa2util.c')):
+    print("Yes\n")
     ext_modules = [Extension('fa2.fa2util', ['fa2/fa2util.c'])]
     cmdclass = {}
-    cythonopts = {"ext_modules": ext_modules,
-                  "cmdclass": cmdclass}
+    opts = {"ext_modules": ext_modules, "cmdclass": cmdclass}
 else:
-    cythonopts = None
+    print("Pre-generated C files are not available. This library will be slow without Cython optimizations.\n")
+    opts = {"py_modules": ["fa2.fa2util"]}
 
-    # Uncomment the following line if you want to install without optimizations
-    # cythonopts = {"py_modules": ["fa2.fa2util"]}
+# Uncomment the following line if you want to install without optimizations
+# opts = {"py_modules": ["fa2.fa2util"]}
 
-    if cythonopts is None:
-        from Cython.Build import build_ext
-
-        ext_modules = [Extension('fa2.fa2util', ['fa2/fa2util.py', 'fa2/fa2util.pxd'])]
-        cmdclass = {'build_ext': build_ext}
-        cythonopts = {"ext_modules": ext_modules,
-                      "cmdclass": cmdclass}
+print(">>>> Starting to install!\n")
 
 setup(
     name='fa2',
-    version='0.2',
+    version='0.3',
     description='The fastest ForceAtlas2 algorithm for Python (and NetworkX)',
     long_description=long_description,
     author='Bhargav Chippada',
@@ -60,5 +69,5 @@ setup(
         'networkx': ['networkx']
     },
     include_package_data=True,
-    **cythonopts
+    **opts
 )
