@@ -5,6 +5,13 @@ A port of Gephi’s Force Atlas 2 layout algorithm to Python 2 and Python 3 (wit
 
 ForceAtlas2 is a very fast layout algorithm for force directed graphs. The implementation is based on this [paper](http://journals.plos.org/plosone/article?id=10.1371/journal.pone.0098679) and the corresponding [gephi-java-code](https://github.com/gephi/gephi/blob/master/modules/LayoutPlugin/src/main/java/org/gephi/layout/plugin/forceAtlas2/ForceAtlas2.java). Its really quick compared to the fruchterman reingold algorithm (spring layout) of networkx and scales well to high number of nodes (>10000).
 
+<p align="center" text-align="center">
+    <b>Spatialize a random Geometric Graph</b>
+</p>
+<p align="center">
+  <img width="460" height="300" src="./examples/geometric_graph.png">
+</p>
+
 Installation
 ------------
 
@@ -25,6 +32,13 @@ To build and install run from source:
 -   tqdm (progressbar)
 -   Cython (10-100x speedup)
 -   networkx (To use the NetworkX wrapper function, you obviously need NetworkX)
+
+<p align="center" text-align="center">
+    <b>Spatialize a 2D Grid</b>
+</p>
+<p align="center">
+  <img width="460" height="300" src="./examples/grid_graph.png">
+</p>
 
 Usage
 -----
@@ -83,21 +97,6 @@ nx.draw_networkx_edges(G, positions, edge_color="green", alpha=0.05)
 plt.axis('off')
 plt.show()
 ```
-
-<p align="center" text-align="center">
-    <b>Spatialize a random Geometric Graph</b>
-</p>
-<p align="center">
-  <img width="460" height="300" src="./examples/geometric_graph.png">
-</p>
-
-<p align="center" text-align="center">
-    <b>Spatialize a 2D Grid</b>
-</p>
-<p align="center">
-  <img width="460" height="300" src="./examples/grid_graph.png">
-</p>
-
 You can also take a look at forceatlas2.py file for understanding the ForceAtlas2 class and its functions better.
 
 Features Completed
