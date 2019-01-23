@@ -1,2 +1,3 @@
 include fa2/fa2util.c
 include fa2/fa2util.pxd
+include examples/*

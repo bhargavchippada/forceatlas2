@@ -7,6 +7,10 @@ print("Installing fa2 package (fastest forceatlas2 python implementation)\n")
 
 here = path.abspath(path.dirname(__file__))
 
+# Get the long description from the README file
+with open(path.join(here, 'README.md'), encoding='utf-8') as f:
+    long_description = f.read()
+
 print(">>>> Cython is installed?")
 try:
     from Cython.Distutils import Extension
@@ -40,12 +44,14 @@ print(">>>> Starting to install!\n")
 
 setup(
     name='fa2',
-    version='0.3',
+    version='0.4',
     description='The fastest ForceAtlas2 algorithm for Python (and NetworkX)',
+    long_description_content_type='text/markdown',
+    long_description=long_description,
     author='Bhargav Chippada',
     author_email='bhargavchippada19@gmail.com',
     url='https://github.com/bhargavchippada/forceatlas2',
-    download_url='https://github.com/bhargavchippada/forceatlas2/archive/v0.3.tar.gz',
+    download_url='https://github.com/bhargavchippada/forceatlas2/archive/v0.4.tar.gz',
     keywords=['forceatlas2', 'networkx', 'force-directed-graph', 'force-layout', 'graph'],
     packages=['fa2'],
     classifiers=[
