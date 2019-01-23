@@ -5256,7 +5256,7 @@ static void __pyx_f_3fa2_7fa2util_6Region_updateMassAndGeometry(struct __pyx_obj
  *                 self.mass += n.mass
  *                 massSumX += n.x * n.mass             # <<<<<<<<<<<<<<
  *                 massSumY += n.y * n.mass
- *             self.massCenterX = massSumX / self.mass;
+ *             self.massCenterX = massSumX / self.mass
  */
       __pyx_v_massSumX = (__pyx_v_massSumX + (__pyx_v_n->x * __pyx_v_n->mass));
 
@@ -5264,8 +5264,8 @@ static void __pyx_f_3fa2_7fa2util_6Region_updateMassAndGeometry(struct __pyx_obj
  *                 self.mass += n.mass
  *                 massSumX += n.x * n.mass
  *                 massSumY += n.y * n.mass             # <<<<<<<<<<<<<<
- *             self.massCenterX = massSumX / self.mass;
- *             self.massCenterY = massSumY / self.mass;
+ *             self.massCenterX = massSumX / self.mass
+ *             self.massCenterY = massSumY / self.mass
  */
       __pyx_v_massSumY = (__pyx_v_massSumY + (__pyx_v_n->y * __pyx_v_n->mass));
 
@@ -5282,8 +5282,8 @@ static void __pyx_f_3fa2_7fa2util_6Region_updateMassAndGeometry(struct __pyx_obj
     /* "fa2/fa2util.py":168
  *                 massSumX += n.x * n.mass
  *                 massSumY += n.y * n.mass
- *             self.massCenterX = massSumX / self.mass;             # <<<<<<<<<<<<<<
- *             self.massCenterY = massSumY / self.mass;
+ *             self.massCenterX = massSumX / self.mass             # <<<<<<<<<<<<<<
+ *             self.massCenterY = massSumY / self.mass
  * 
  */
     if (unlikely(__pyx_v_self->mass == 0)) {
@@ -5294,10 +5294,10 @@ static void __pyx_f_3fa2_7fa2util_6Region_updateMassAndGeometry(struct __pyx_obj
 
     /* "fa2/fa2util.py":169
  *                 massSumY += n.y * n.mass
- *             self.massCenterX = massSumX / self.mass;
- *             self.massCenterY = massSumY / self.mass;             # <<<<<<<<<<<<<<
+ *             self.massCenterX = massSumX / self.mass
+ *             self.massCenterY = massSumY / self.mass             # <<<<<<<<<<<<<<
  * 
- *             self.size = 0.0;
+ *             self.size = 0.0
  */
     if (unlikely(__pyx_v_self->mass == 0)) {
       PyErr_SetString(PyExc_ZeroDivisionError, "float division");
@@ -5306,9 +5306,9 @@ static void __pyx_f_3fa2_7fa2util_6Region_updateMassAndGeometry(struct __pyx_obj
     __pyx_v_self->massCenterY = (__pyx_v_massSumY / __pyx_v_self->mass);
 
     /* "fa2/fa2util.py":171
- *             self.massCenterY = massSumY / self.mass;
+ *             self.massCenterY = massSumY / self.mass
  * 
- *             self.size = 0.0;             # <<<<<<<<<<<<<<
+ *             self.size = 0.0             # <<<<<<<<<<<<<<
  *             for n in self.nodes:
  *                 distance = sqrt((n.x - self.massCenterX) ** 2 + (n.y - self.massCenterY) ** 2)
  */
@@ -5316,7 +5316,7 @@ static void __pyx_f_3fa2_7fa2util_6Region_updateMassAndGeometry(struct __pyx_obj
 
     /* "fa2/fa2util.py":172
  * 
- *             self.size = 0.0;
+ *             self.size = 0.0
  *             for n in self.nodes:             # <<<<<<<<<<<<<<
  *                 distance = sqrt((n.x - self.massCenterX) ** 2 + (n.y - self.massCenterY) ** 2)
  *                 self.size = max(self.size, 2 * distance)
@@ -5339,7 +5339,7 @@ static void __pyx_f_3fa2_7fa2util_6Region_updateMassAndGeometry(struct __pyx_obj
       __pyx_t_4 = 0;
 
       /* "fa2/fa2util.py":173
- *             self.size = 0.0;
+ *             self.size = 0.0
  *             for n in self.nodes:
  *                 distance = sqrt((n.x - self.massCenterX) ** 2 + (n.y - self.massCenterY) ** 2)             # <<<<<<<<<<<<<<
  *                 self.size = max(self.size, 2 * distance)
@@ -5387,7 +5387,7 @@ static void __pyx_f_3fa2_7fa2util_6Region_updateMassAndGeometry(struct __pyx_obj
 
       /* "fa2/fa2util.py":172
  * 
- *             self.size = 0.0;
+ *             self.size = 0.0
  *             for n in self.nodes:             # <<<<<<<<<<<<<<
  *                 distance = sqrt((n.x - self.massCenterX) ** 2 + (n.y - self.massCenterY) ** 2)
  *                 self.size = max(self.size, 2 * distance)
