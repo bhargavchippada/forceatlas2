@@ -1,6 +1,6 @@
 ## ForceAtlas2 for Python and NetworkX
 
-A port of Gephi’s Force Atlas 2 layout algorithm to Python 2 and Python 3 (with a wrapper for NetworkX). This is the fastest python implementation available with most of the features complete. It also supports Barnes Hut approximation for maximum speedup.
+A port of Gephi's Force Atlas 2 layout algorithm to Python 2 and Python 3 (with a wrapper for NetworkX). This is the fastest python implementation available with most of the features complete. It also supports Barnes Hut approximation for maximum speedup.
 
 ForceAtlas2 is a very fast layout algorithm for force directed graphs. The implementation is based on this [paper](http://journals.plos.org/plosone/article?id=10.1371/journal.pone.0098679) and the corresponding [gephi-java-code](https://github.com/gephi/gephi/blob/master/modules/LayoutPlugin/src/main/java/org/gephi/layout/plugin/forceAtlas2/ForceAtlas2.java). Its really quick compared to the fruchterman reingold algorithm (spring layout) of networkx and scales well to high number of nodes (>10000).
 
@@ -8,7 +8,7 @@ ForceAtlas2 is a very fast layout algorithm for force directed graphs. The imple
     <b>Spatialize a random Geometric Graph</b>
 </p>
 <p align="center">
-  <img width="460" height="300" src="./examples/geometric_graph.png">
+  <img width="460" height="300" src="https://raw.githubusercontent.com/bhargavchippada/forceatlas2/master/examples/geometric_graph.png" alt="Geometric Graph">
 </p>
 
 ## Installation
@@ -35,7 +35,7 @@ To build and install run from source:
     <b>Spatialize a 2D Grid</b>
 </p>
 <p align="center">
-  <img width="460" height="300" src="./examples/grid_graph.png">
+  <img width="460" height="300" src="https://raw.githubusercontent.com/bhargavchippada/forceatlas2/master/examples/grid_graph.png" alt="Grid Graph">
 </p>
 
 ## Usage
@@ -43,65 +43,66 @@ To build and install run from source:
 from fa2 import ForceAtlas2
 
 Create a ForceAtlas2 object with the appropriate settings. ForceAtlas2 class contains two important methods:
-
-    forceatlas2 (G, pos, iterations)
-    # G is a graph in 2D numpy ndarray format (or) scipy sparse matrix format
-    # pos is a numpy array (Nx2) of initial positions of nodes
-    # iterations is num of iterations to run the algorithm
-<br/>
-
-    forceatlas2_networkx_layout(G, pos, iterations)
-    # G is networkx graph
-    # pos is a dictionary, as in networkx
-    # iterations is num of iterations to run the algorithm
-
+```python
+forceatlas2 (G, pos, iterations)
+# G is a graph in 2D numpy ndarray format (or) scipy sparse matrix format
+# pos is a numpy array (Nx2) of initial positions of nodes
+# iterations is num of iterations to run the algorithm
+```
+```python
+forceatlas2_networkx_layout(G, pos, iterations)
+# G is networkx graph
+# pos is a dictionary, as in networkx
+# iterations is num of iterations to run the algorithm
+```
 Below is an example usage. You can also see the feature settings of ForceAtlas2 class.
 
-    import networkx as nx
-    from fa2 import ForceAtlas2
-    import matplotlib.pyplot as plt
+```python
+import networkx as nx
+from fa2 import ForceAtlas2
+import matplotlib.pyplot as plt
 
-    G = nx.random_geometric_graph(400, 0.2)
+G = nx.random_geometric_graph(400, 0.2)
 
-    forceatlas2 = ForceAtlas2(
-                            # Behavior alternatives
-                            outboundAttractionDistribution=True,  # Dissuade hubs
-                            linLogMode=False,  # NOT IMPLEMENTED
-                            adjustSizes=False,  # Prevent overlap (NOT IMPLEMENTED)
-                            edgeWeightInfluence=1.0,
+forceatlas2 = ForceAtlas2(
+                        # Behavior alternatives
+                        outboundAttractionDistribution=True,  # Dissuade hubs
+                        linLogMode=False,  # NOT IMPLEMENTED
+                        adjustSizes=False,  # Prevent overlap (NOT IMPLEMENTED)
+                        edgeWeightInfluence=1.0,
 
-                            # Performance
-                            jitterTolerance=1.0,  # Tolerance
-                            barnesHutOptimize=True,
-                            barnesHutTheta=1.2,
-                            multiThreaded=False,  # NOT IMPLEMENTED
+                        # Performance
+                        jitterTolerance=1.0,  # Tolerance
+                        barnesHutOptimize=True,
+                        barnesHutTheta=1.2,
+                        multiThreaded=False,  # NOT IMPLEMENTED
 
-                            # Tuning
-                            scalingRatio=2.0,
-                            strongGravityMode=False,
-                            gravity=1.0,
+                        # Tuning
+                        scalingRatio=2.0,
+                        strongGravityMode=False,
+                        gravity=1.0,
 
-                            # Log
-                            verbose=True)
+                        # Log
+                        verbose=True)
 
-    positions = forceatlas2.forceatlas2_networkx_layout(G, pos=None, iterations=2000)
-    nx.draw_networkx_nodes(G, positions, node_size=20, with_labels=False, node_color="blue", alpha=0.4)
-    nx.draw_networkx_edges(G, positions, edge_color="green", alpha=0.05)
-    plt.axis('off')
-    plt.show()
-
+positions = forceatlas2.forceatlas2_networkx_layout(G, pos=None, iterations=2000)
+nx.draw_networkx_nodes(G, positions, node_size=20, with_labels=False, node_color="blue", alpha=0.4)
+nx.draw_networkx_edges(G, positions, edge_color="green", alpha=0.05)
+plt.axis('off')
+plt.show()
+```
 You can also take a look at forceatlas2.py file for understanding the ForceAtlas2 class and its functions better.
 
 ## Features Completed
 
--   **barnesHutOptimize**: Barnes Hut optimization, n² complexity to n.ln(n)
+-   **barnesHutOptimize**: Barnes Hut optimization, n<sup>2</sup> complexity to n.ln(n)
 -   **gravity**: Attracts nodes to the center. Prevents islands from drifting away
 -   **Dissuade Hubs**: Distributes attraction along outbound edges. Hubs attract less and thus are pushed to the borders
 -   **scalingRatio**: How much repulsion you want. More makes a more sparse graph
 -   **strongGravityMode**: A stronger gravity view
 -   **jitterTolerance**: How much swinging you allow. Above 1 discouraged. Lower gives less speed and more precision
 -   **verbose**: Shows a progressbar of iterations completed. Also, shows time taken for different force computations
--   **edgeWeightInfluence**: How much influence you give to the edges weight. 0 is “no influence” and 1 is “normal”
+-   **edgeWeightInfluence**: How much influence you give to the edges weight. 0 is "no influence" and 1 is "normal"
 
 ## Documentation
 
@@ -116,7 +117,7 @@ Contributions are highly welcome. Please submit your pull requests and become a 
     Copyright (C) 2017 Bhargav Chippada bhargavchippada19@gmail.com.
     Licensed under the GNU GPLv3.
 
-The files are heavily based on the java files included in Gephi, git revision 2b9a7c8 and Max Shinn’s port to python of the algorithm. Here I include the copyright information from those files:
+The files are heavily based on the java files included in Gephi, git revision 2b9a7c8 and Max Shinn's port to python of the algorithm. Here I include the copyright information from those files:
 
     Copyright 2008-2011 Gephi
     Authors : Mathieu Jacomy <mathieu.jacomy@gmail.com>
