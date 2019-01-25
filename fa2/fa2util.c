@@ -1257,6 +1257,19 @@ static CYTHON_INLINE int __Pyx_PyList_Append(PyObject* list, PyObject* x) {
 #define __Pyx_PyList_Append(L,x) PyList_Append(L,x)
 #endif
 
+/* pyobject_as_double.proto */
+static double __Pyx__PyObject_AsDouble(PyObject* obj);
+#if CYTHON_COMPILING_IN_PYPY
+#define __Pyx_PyObject_AsDouble(obj)\
+(likely(PyFloat_CheckExact(obj)) ? PyFloat_AS_DOUBLE(obj) :\
+ likely(PyInt_CheckExact(obj)) ?\
+ PyFloat_AsDouble(obj) : __Pyx__PyObject_AsDouble(obj))
+#else
+#define __Pyx_PyObject_AsDouble(obj)\
+((likely(PyFloat_CheckExact(obj))) ?\
+ PyFloat_AS_DOUBLE(obj) : __Pyx__PyObject_AsDouble(obj))
+#endif
+
 /* PyFloatBinop.proto */
 #if !CYTHON_COMPILING_IN_PYPY
 static PyObject* __Pyx_PyFloat_AddCObj(PyObject *op1, PyObject *op2, double floatval, int inplace);
@@ -1470,6 +1483,7 @@ static PyObject *__pyx_builtin_print;
 static const char __pyx_k_e[] = "e";
 static const char __pyx_k_n1[] = "n1";
 static const char __pyx_k_n2[] = "n2";
+static const char __pyx_k_inf[] = "inf";
 static const char __pyx_k_new[] = "__new__";
 static const char __pyx_k_Edge[] = "Edge";
 static const char __pyx_k_Node[] = "Node";
@@ -1575,6 +1589,7 @@ static PyObject *__pyx_kp_s_fa2_fa2util_py;
 static PyObject *__pyx_n_s_getstate;
 static PyObject *__pyx_n_s_gravity;
 static PyObject *__pyx_n_s_import;
+static PyObject *__pyx_n_u_inf;
 static PyObject *__pyx_n_s_jitterTolerance;
 static PyObject *__pyx_n_s_linAttraction;
 static PyObject *__pyx_n_s_main;
@@ -8229,7 +8244,7 @@ static PyObject *__pyx_f_3fa2_7fa2util_adjustSpeedAndApplyForces(PyObject *__pyx
  *             speedEfficiency *= .5
  *         jt = max(jt, jitterTolerance)             # <<<<<<<<<<<<<<
  * 
- *     targetSpeed = jt * speedEfficiency * totalEffectiveTraction / totalSwinging
+ *     if totalSwinging == 0:
  */
     __pyx_t_7 = __pyx_v_jitterTolerance;
     __pyx_t_12 = __pyx_v_jt;
@@ -8252,19 +8267,52 @@ static PyObject *__pyx_f_3fa2_7fa2util_adjustSpeedAndApplyForces(PyObject *__pyx
   /* "fa2/fa2util.py":287
  *         jt = max(jt, jitterTolerance)
  * 
- *     targetSpeed = jt * speedEfficiency * totalEffectiveTraction / totalSwinging             # <<<<<<<<<<<<<<
+ *     if totalSwinging == 0:             # <<<<<<<<<<<<<<
+ *         targetSpeed = float('inf')
+ *     else:
+ */
+  __pyx_t_14 = ((__pyx_v_totalSwinging == 0.0) != 0);
+  if (__pyx_t_14) {
+
+    /* "fa2/fa2util.py":288
+ * 
+ *     if totalSwinging == 0:
+ *         targetSpeed = float('inf')             # <<<<<<<<<<<<<<
+ *     else:
+ *         targetSpeed = jt * speedEfficiency * totalEffectiveTraction / totalSwinging
+ */
+    __pyx_t_13 = __Pyx_PyObject_AsDouble(__pyx_n_u_inf); if (unlikely(__pyx_t_13 == ((double)((double)-1)) && PyErr_Occurred())) __PYX_ERR(0, 288, __pyx_L1_error)
+    __pyx_v_targetSpeed = __pyx_t_13;
+
+    /* "fa2/fa2util.py":287
+ *         jt = max(jt, jitterTolerance)
+ * 
+ *     if totalSwinging == 0:             # <<<<<<<<<<<<<<
+ *         targetSpeed = float('inf')
+ *     else:
+ */
+    goto __pyx_L7;
+  }
+
+  /* "fa2/fa2util.py":290
+ *         targetSpeed = float('inf')
+ *     else:
+ *         targetSpeed = jt * speedEfficiency * totalEffectiveTraction / totalSwinging             # <<<<<<<<<<<<<<
  * 
  *     if totalSwinging > jt * totalEffectiveTraction:
  */
-  __pyx_t_13 = ((__pyx_v_jt * __pyx_v_speedEfficiency) * __pyx_v_totalEffectiveTraction);
-  if (unlikely(__pyx_v_totalSwinging == 0)) {
-    PyErr_SetString(PyExc_ZeroDivisionError, "float division");
-    __PYX_ERR(0, 287, __pyx_L1_error)
+  /*else*/ {
+    __pyx_t_13 = ((__pyx_v_jt * __pyx_v_speedEfficiency) * __pyx_v_totalEffectiveTraction);
+    if (unlikely(__pyx_v_totalSwinging == 0)) {
+      PyErr_SetString(PyExc_ZeroDivisionError, "float division");
+      __PYX_ERR(0, 290, __pyx_L1_error)
+    }
+    __pyx_v_targetSpeed = (__pyx_t_13 / __pyx_v_totalSwinging);
   }
-  __pyx_v_targetSpeed = (__pyx_t_13 / __pyx_v_totalSwinging);
+  __pyx_L7:;
 
-  /* "fa2/fa2util.py":289
- *     targetSpeed = jt * speedEfficiency * totalEffectiveTraction / totalSwinging
+  /* "fa2/fa2util.py":292
+ *         targetSpeed = jt * speedEfficiency * totalEffectiveTraction / totalSwinging
  * 
  *     if totalSwinging > jt * totalEffectiveTraction:             # <<<<<<<<<<<<<<
  *         if speedEfficiency > minSpeedEfficiency:
@@ -8273,7 +8321,7 @@ static PyObject *__pyx_f_3fa2_7fa2util_adjustSpeedAndApplyForces(PyObject *__pyx
   __pyx_t_14 = ((__pyx_v_totalSwinging > (__pyx_v_jt * __pyx_v_totalEffectiveTraction)) != 0);
   if (__pyx_t_14) {
 
-    /* "fa2/fa2util.py":290
+    /* "fa2/fa2util.py":293
  * 
  *     if totalSwinging > jt * totalEffectiveTraction:
  *         if speedEfficiency > minSpeedEfficiency:             # <<<<<<<<<<<<<<
@@ -8283,7 +8331,7 @@ static PyObject *__pyx_f_3fa2_7fa2util_adjustSpeedAndApplyForces(PyObject *__pyx
     __pyx_t_14 = ((__pyx_v_speedEfficiency > __pyx_v_minSpeedEfficiency) != 0);
     if (__pyx_t_14) {
 
-      /* "fa2/fa2util.py":291
+      /* "fa2/fa2util.py":294
  *     if totalSwinging > jt * totalEffectiveTraction:
  *         if speedEfficiency > minSpeedEfficiency:
  *             speedEfficiency *= .7             # <<<<<<<<<<<<<<
@@ -8292,7 +8340,7 @@ static PyObject *__pyx_f_3fa2_7fa2util_adjustSpeedAndApplyForces(PyObject *__pyx
  */
       __pyx_v_speedEfficiency = (__pyx_v_speedEfficiency * .7);
 
-      /* "fa2/fa2util.py":290
+      /* "fa2/fa2util.py":293
  * 
  *     if totalSwinging > jt * totalEffectiveTraction:
  *         if speedEfficiency > minSpeedEfficiency:             # <<<<<<<<<<<<<<
@@ -8301,17 +8349,17 @@ static PyObject *__pyx_f_3fa2_7fa2util_adjustSpeedAndApplyForces(PyObject *__pyx
  */
     }
 
-    /* "fa2/fa2util.py":289
- *     targetSpeed = jt * speedEfficiency * totalEffectiveTraction / totalSwinging
+    /* "fa2/fa2util.py":292
+ *         targetSpeed = jt * speedEfficiency * totalEffectiveTraction / totalSwinging
  * 
  *     if totalSwinging > jt * totalEffectiveTraction:             # <<<<<<<<<<<<<<
  *         if speedEfficiency > minSpeedEfficiency:
  *             speedEfficiency *= .7
  */
-    goto __pyx_L7;
+    goto __pyx_L8;
   }
 
-  /* "fa2/fa2util.py":292
+  /* "fa2/fa2util.py":295
  *         if speedEfficiency > minSpeedEfficiency:
  *             speedEfficiency *= .7
  *     elif speed < 1000:             # <<<<<<<<<<<<<<
@@ -8321,7 +8369,7 @@ static PyObject *__pyx_f_3fa2_7fa2util_adjustSpeedAndApplyForces(PyObject *__pyx
   __pyx_t_14 = ((__pyx_v_speed < 1000.0) != 0);
   if (__pyx_t_14) {
 
-    /* "fa2/fa2util.py":293
+    /* "fa2/fa2util.py":296
  *             speedEfficiency *= .7
  *     elif speed < 1000:
  *         speedEfficiency *= 1.3             # <<<<<<<<<<<<<<
@@ -8330,7 +8378,7 @@ static PyObject *__pyx_f_3fa2_7fa2util_adjustSpeedAndApplyForces(PyObject *__pyx
  */
     __pyx_v_speedEfficiency = (__pyx_v_speedEfficiency * 1.3);
 
-    /* "fa2/fa2util.py":292
+    /* "fa2/fa2util.py":295
  *         if speedEfficiency > minSpeedEfficiency:
  *             speedEfficiency *= .7
  *     elif speed < 1000:             # <<<<<<<<<<<<<<
@@ -8338,9 +8386,9 @@ static PyObject *__pyx_f_3fa2_7fa2util_adjustSpeedAndApplyForces(PyObject *__pyx
  * 
  */
   }
-  __pyx_L7:;
+  __pyx_L8:;
 
-  /* "fa2/fa2util.py":297
+  /* "fa2/fa2util.py":300
  *     # But the speed shoudn't rise too much too quickly, since it would
  *     # make the convergence drop dramatically.
  *     maxRise = .5             # <<<<<<<<<<<<<<
@@ -8349,7 +8397,7 @@ static PyObject *__pyx_f_3fa2_7fa2util_adjustSpeedAndApplyForces(PyObject *__pyx
  */
   __pyx_v_maxRise = .5;
 
-  /* "fa2/fa2util.py":298
+  /* "fa2/fa2util.py":301
  *     # make the convergence drop dramatically.
  *     maxRise = .5
  *     speed = speed + min(targetSpeed - speed, maxRise * speed)             # <<<<<<<<<<<<<<
@@ -8365,7 +8413,7 @@ static PyObject *__pyx_f_3fa2_7fa2util_adjustSpeedAndApplyForces(PyObject *__pyx
   }
   __pyx_v_speed = (__pyx_v_speed + __pyx_t_12);
 
-  /* "fa2/fa2util.py":304
+  /* "fa2/fa2util.py":307
  *     # Need to add a case if adjustSizes ("prevent overlap") is
  *     # implemented.
  *     for n in nodes:             # <<<<<<<<<<<<<<
@@ -8374,33 +8422,33 @@ static PyObject *__pyx_f_3fa2_7fa2util_adjustSpeedAndApplyForces(PyObject *__pyx
  */
   if (unlikely(__pyx_v_nodes == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not iterable");
-    __PYX_ERR(0, 304, __pyx_L1_error)
+    __PYX_ERR(0, 307, __pyx_L1_error)
   }
   __pyx_t_5 = __pyx_v_nodes; __Pyx_INCREF(__pyx_t_5); __pyx_t_11 = 0;
   for (;;) {
     if (__pyx_t_11 >= PyList_GET_SIZE(__pyx_t_5)) break;
     #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-    __pyx_t_1 = PyList_GET_ITEM(__pyx_t_5, __pyx_t_11); __Pyx_INCREF(__pyx_t_1); __pyx_t_11++; if (unlikely(0 < 0)) __PYX_ERR(0, 304, __pyx_L1_error)
+    __pyx_t_1 = PyList_GET_ITEM(__pyx_t_5, __pyx_t_11); __Pyx_INCREF(__pyx_t_1); __pyx_t_11++; if (unlikely(0 < 0)) __PYX_ERR(0, 307, __pyx_L1_error)
     #else
-    __pyx_t_1 = PySequence_ITEM(__pyx_t_5, __pyx_t_11); __pyx_t_11++; if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 304, __pyx_L1_error)
+    __pyx_t_1 = PySequence_ITEM(__pyx_t_5, __pyx_t_11); __pyx_t_11++; if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 307, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     #endif
-    if (!(likely(((__pyx_t_1) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_1, __pyx_ptype_3fa2_7fa2util_Node))))) __PYX_ERR(0, 304, __pyx_L1_error)
+    if (!(likely(((__pyx_t_1) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_1, __pyx_ptype_3fa2_7fa2util_Node))))) __PYX_ERR(0, 307, __pyx_L1_error)
     __Pyx_XDECREF_SET(__pyx_v_n, ((struct __pyx_obj_3fa2_7fa2util_Node *)__pyx_t_1));
     __pyx_t_1 = 0;
 
-    /* "fa2/fa2util.py":305
+    /* "fa2/fa2util.py":308
  *     # implemented.
  *     for n in nodes:
  *         swinging = n.mass * sqrt((n.old_dx - n.dx) * (n.old_dx - n.dx) + (n.old_dy - n.dy) * (n.old_dy - n.dy))             # <<<<<<<<<<<<<<
  *         factor = speed / (1.0 + sqrt(speed * swinging))
  *         n.x = n.x + (n.dx * factor)
  */
-    __pyx_t_1 = PyFloat_FromDouble(__pyx_v_n->mass); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 305, __pyx_L1_error)
+    __pyx_t_1 = PyFloat_FromDouble(__pyx_v_n->mass); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 308, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_sqrt); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 305, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_sqrt); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 308, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_4 = PyFloat_FromDouble((((__pyx_v_n->old_dx - __pyx_v_n->dx) * (__pyx_v_n->old_dx - __pyx_v_n->dx)) + ((__pyx_v_n->old_dy - __pyx_v_n->dy) * (__pyx_v_n->old_dy - __pyx_v_n->dy)))); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 305, __pyx_L1_error)
+    __pyx_t_4 = PyFloat_FromDouble((((__pyx_v_n->old_dx - __pyx_v_n->dx) * (__pyx_v_n->old_dx - __pyx_v_n->dx)) + ((__pyx_v_n->old_dy - __pyx_v_n->dy) * (__pyx_v_n->old_dy - __pyx_v_n->dy)))); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 308, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_t_8 = NULL;
     if (CYTHON_UNPACK_METHODS && unlikely(PyMethod_Check(__pyx_t_3))) {
@@ -8415,29 +8463,29 @@ static PyObject *__pyx_f_3fa2_7fa2util_adjustSpeedAndApplyForces(PyObject *__pyx
     __pyx_t_6 = (__pyx_t_8) ? __Pyx_PyObject_Call2Args(__pyx_t_3, __pyx_t_8, __pyx_t_4) : __Pyx_PyObject_CallOneArg(__pyx_t_3, __pyx_t_4);
     __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 305, __pyx_L1_error)
+    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 308, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __pyx_t_3 = PyNumber_Multiply(__pyx_t_1, __pyx_t_6); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 305, __pyx_L1_error)
+    __pyx_t_3 = PyNumber_Multiply(__pyx_t_1, __pyx_t_6); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 308, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    __pyx_t_12 = __pyx_PyFloat_AsDouble(__pyx_t_3); if (unlikely((__pyx_t_12 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 305, __pyx_L1_error)
+    __pyx_t_12 = __pyx_PyFloat_AsDouble(__pyx_t_3); if (unlikely((__pyx_t_12 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 308, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __pyx_v_swinging = __pyx_t_12;
 
-    /* "fa2/fa2util.py":306
+    /* "fa2/fa2util.py":309
  *     for n in nodes:
  *         swinging = n.mass * sqrt((n.old_dx - n.dx) * (n.old_dx - n.dx) + (n.old_dy - n.dy) * (n.old_dy - n.dy))
  *         factor = speed / (1.0 + sqrt(speed * swinging))             # <<<<<<<<<<<<<<
  *         n.x = n.x + (n.dx * factor)
  *         n.y = n.y + (n.dy * factor)
  */
-    __pyx_t_3 = PyFloat_FromDouble(__pyx_v_speed); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 306, __pyx_L1_error)
+    __pyx_t_3 = PyFloat_FromDouble(__pyx_v_speed); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 309, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_sqrt); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 306, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_sqrt); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 309, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_4 = PyFloat_FromDouble((__pyx_v_speed * __pyx_v_swinging)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 306, __pyx_L1_error)
+    __pyx_t_4 = PyFloat_FromDouble((__pyx_v_speed * __pyx_v_swinging)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 309, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_t_8 = NULL;
     if (CYTHON_UNPACK_METHODS && unlikely(PyMethod_Check(__pyx_t_1))) {
@@ -8452,21 +8500,21 @@ static PyObject *__pyx_f_3fa2_7fa2util_adjustSpeedAndApplyForces(PyObject *__pyx
     __pyx_t_6 = (__pyx_t_8) ? __Pyx_PyObject_Call2Args(__pyx_t_1, __pyx_t_8, __pyx_t_4) : __Pyx_PyObject_CallOneArg(__pyx_t_1, __pyx_t_4);
     __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 306, __pyx_L1_error)
+    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 309, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __pyx_t_1 = __Pyx_PyFloat_AddCObj(__pyx_float_1_0, __pyx_t_6, 1.0, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 306, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyFloat_AddCObj(__pyx_float_1_0, __pyx_t_6, 1.0, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 309, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    __pyx_t_6 = __Pyx_PyNumber_Divide(__pyx_t_3, __pyx_t_1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 306, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyNumber_Divide(__pyx_t_3, __pyx_t_1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 309, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __pyx_t_12 = __pyx_PyFloat_AsDouble(__pyx_t_6); if (unlikely((__pyx_t_12 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 306, __pyx_L1_error)
+    __pyx_t_12 = __pyx_PyFloat_AsDouble(__pyx_t_6); if (unlikely((__pyx_t_12 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 309, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __pyx_v_factor = __pyx_t_12;
 
-    /* "fa2/fa2util.py":307
+    /* "fa2/fa2util.py":310
  *         swinging = n.mass * sqrt((n.old_dx - n.dx) * (n.old_dx - n.dx) + (n.old_dy - n.dy) * (n.old_dy - n.dy))
  *         factor = speed / (1.0 + sqrt(speed * swinging))
  *         n.x = n.x + (n.dx * factor)             # <<<<<<<<<<<<<<
@@ -8475,7 +8523,7 @@ static PyObject *__pyx_f_3fa2_7fa2util_adjustSpeedAndApplyForces(PyObject *__pyx
  */
     __pyx_v_n->x = (__pyx_v_n->x + (__pyx_v_n->dx * __pyx_v_factor));
 
-    /* "fa2/fa2util.py":308
+    /* "fa2/fa2util.py":311
  *         factor = speed / (1.0 + sqrt(speed * swinging))
  *         n.x = n.x + (n.dx * factor)
  *         n.y = n.y + (n.dy * factor)             # <<<<<<<<<<<<<<
@@ -8484,7 +8532,7 @@ static PyObject *__pyx_f_3fa2_7fa2util_adjustSpeedAndApplyForces(PyObject *__pyx
  */
     __pyx_v_n->y = (__pyx_v_n->y + (__pyx_v_n->dy * __pyx_v_factor));
 
-    /* "fa2/fa2util.py":304
+    /* "fa2/fa2util.py":307
  *     # Need to add a case if adjustSizes ("prevent overlap") is
  *     # implemented.
  *     for n in nodes:             # <<<<<<<<<<<<<<
@@ -8494,43 +8542,43 @@ static PyObject *__pyx_f_3fa2_7fa2util_adjustSpeedAndApplyForces(PyObject *__pyx
   }
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "fa2/fa2util.py":310
+  /* "fa2/fa2util.py":313
  *         n.y = n.y + (n.dy * factor)
  * 
  *     values = {}             # <<<<<<<<<<<<<<
  *     values['speed'] = speed
  *     values['speedEfficiency'] = speedEfficiency
  */
-  __pyx_t_5 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 310, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 313, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __pyx_v_values = ((PyObject*)__pyx_t_5);
   __pyx_t_5 = 0;
 
-  /* "fa2/fa2util.py":311
+  /* "fa2/fa2util.py":314
  * 
  *     values = {}
  *     values['speed'] = speed             # <<<<<<<<<<<<<<
  *     values['speedEfficiency'] = speedEfficiency
  * 
  */
-  __pyx_t_5 = PyFloat_FromDouble(__pyx_v_speed); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 311, __pyx_L1_error)
+  __pyx_t_5 = PyFloat_FromDouble(__pyx_v_speed); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 314, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (unlikely(PyDict_SetItem(__pyx_v_values, __pyx_n_u_speed, __pyx_t_5) < 0)) __PYX_ERR(0, 311, __pyx_L1_error)
+  if (unlikely(PyDict_SetItem(__pyx_v_values, __pyx_n_u_speed, __pyx_t_5) < 0)) __PYX_ERR(0, 314, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "fa2/fa2util.py":312
+  /* "fa2/fa2util.py":315
  *     values = {}
  *     values['speed'] = speed
  *     values['speedEfficiency'] = speedEfficiency             # <<<<<<<<<<<<<<
  * 
  *     return values
  */
-  __pyx_t_5 = PyFloat_FromDouble(__pyx_v_speedEfficiency); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 312, __pyx_L1_error)
+  __pyx_t_5 = PyFloat_FromDouble(__pyx_v_speedEfficiency); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 315, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (unlikely(PyDict_SetItem(__pyx_v_values, __pyx_n_u_speedEfficiency, __pyx_t_5) < 0)) __PYX_ERR(0, 312, __pyx_L1_error)
+  if (unlikely(PyDict_SetItem(__pyx_v_values, __pyx_n_u_speedEfficiency, __pyx_t_5) < 0)) __PYX_ERR(0, 315, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "fa2/fa2util.py":314
+  /* "fa2/fa2util.py":317
  *     values['speedEfficiency'] = speedEfficiency
  * 
  *     return values             # <<<<<<<<<<<<<<
@@ -10584,6 +10632,7 @@ static __Pyx_StringTabEntry __pyx_string_tab[] = {
   {&__pyx_n_s_getstate, __pyx_k_getstate, sizeof(__pyx_k_getstate), 0, 0, 1, 1},
   {&__pyx_n_s_gravity, __pyx_k_gravity, sizeof(__pyx_k_gravity), 0, 0, 1, 1},
   {&__pyx_n_s_import, __pyx_k_import, sizeof(__pyx_k_import), 0, 0, 1, 1},
+  {&__pyx_n_u_inf, __pyx_k_inf, sizeof(__pyx_k_inf), 0, 1, 0, 1},
   {&__pyx_n_s_jitterTolerance, __pyx_k_jitterTolerance, sizeof(__pyx_k_jitterTolerance), 0, 0, 1, 1},
   {&__pyx_n_s_linAttraction, __pyx_k_linAttraction, sizeof(__pyx_k_linAttraction), 0, 0, 1, 1},
   {&__pyx_n_s_main, __pyx_k_main, sizeof(__pyx_k_main), 0, 0, 1, 1},
@@ -10625,7 +10674,7 @@ static __Pyx_StringTabEntry __pyx_string_tab[] = {
   {0, 0, 0, 0, 0, 0, 0}
 };
 static CYTHON_SMALL_CODE int __Pyx_InitCachedBuiltins(void) {
-  __pyx_builtin_print = __Pyx_GetBuiltinName(__pyx_n_s_print); if (!__pyx_builtin_print) __PYX_ERR(0, 321, __pyx_L1_error)
+  __pyx_builtin_print = __Pyx_GetBuiltinName(__pyx_n_s_print); if (!__pyx_builtin_print) __PYX_ERR(0, 324, __pyx_L1_error)
   return 0;
   __pyx_L1_error:;
   return -1;
@@ -10782,23 +10831,23 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
   __Pyx_GIVEREF(__pyx_tuple__25);
   __pyx_codeobj__26 = (PyObject*)__Pyx_PyCode_New(4, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__25, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_fa2_fa2util_py, __pyx_n_s_adjustSpeedAndApplyForces, 259, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__26)) __PYX_ERR(0, 259, __pyx_L1_error)
 
-  /* "fa2/fa2util.py":321
+  /* "fa2/fa2util.py":324
  * 
  *     if not cython.compiled:
  *         print("Warning: uncompiled fa2util module.  Compile with cython for a 10-100x speed boost.")             # <<<<<<<<<<<<<<
  * except:
  *     print("No cython detected.  Install cython and compile the fa2util module for a 10-100x speed boost.")
  */
-  __pyx_tuple__27 = PyTuple_Pack(1, __pyx_kp_u_Warning_uncompiled_fa2util_modul); if (unlikely(!__pyx_tuple__27)) __PYX_ERR(0, 321, __pyx_L1_error)
+  __pyx_tuple__27 = PyTuple_Pack(1, __pyx_kp_u_Warning_uncompiled_fa2util_modul); if (unlikely(!__pyx_tuple__27)) __PYX_ERR(0, 324, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__27);
   __Pyx_GIVEREF(__pyx_tuple__27);
 
-  /* "fa2/fa2util.py":323
+  /* "fa2/fa2util.py":326
  *         print("Warning: uncompiled fa2util module.  Compile with cython for a 10-100x speed boost.")
  * except:
  *     print("No cython detected.  Install cython and compile the fa2util module for a 10-100x speed boost.")             # <<<<<<<<<<<<<<
  */
-  __pyx_tuple__28 = PyTuple_Pack(1, __pyx_kp_u_No_cython_detected_Install_cytho); if (unlikely(!__pyx_tuple__28)) __PYX_ERR(0, 323, __pyx_L1_error)
+  __pyx_tuple__28 = PyTuple_Pack(1, __pyx_kp_u_No_cython_detected_Install_cytho); if (unlikely(!__pyx_tuple__28)) __PYX_ERR(0, 326, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__28);
   __Pyx_GIVEREF(__pyx_tuple__28);
 
@@ -11322,7 +11371,7 @@ if (!__Pyx_RefNanny) {
   if (PyDict_SetItem(__pyx_d, __pyx_n_s_adjustSpeedAndApplyForces, __pyx_t_2) < 0) __PYX_ERR(0, 259, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "fa2/fa2util.py":317
+  /* "fa2/fa2util.py":320
  * 
  * 
  * try:             # <<<<<<<<<<<<<<
@@ -11338,7 +11387,7 @@ if (!__Pyx_RefNanny) {
     __Pyx_XGOTREF(__pyx_t_5);
     /*try:*/ {
 
-      /* "fa2/fa2util.py":320
+      /* "fa2/fa2util.py":323
  *     import cython
  * 
  *     if not cython.compiled:             # <<<<<<<<<<<<<<
@@ -11348,18 +11397,18 @@ if (!__Pyx_RefNanny) {
       __pyx_t_6 = ((!(1 != 0)) != 0);
       if (__pyx_t_6) {
 
-        /* "fa2/fa2util.py":321
+        /* "fa2/fa2util.py":324
  * 
  *     if not cython.compiled:
  *         print("Warning: uncompiled fa2util module.  Compile with cython for a 10-100x speed boost.")             # <<<<<<<<<<<<<<
  * except:
  *     print("No cython detected.  Install cython and compile the fa2util module for a 10-100x speed boost.")
  */
-        __pyx_t_2 = __Pyx_PyObject_Call(__pyx_builtin_print, __pyx_tuple__27, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 321, __pyx_L2_error)
+        __pyx_t_2 = __Pyx_PyObject_Call(__pyx_builtin_print, __pyx_tuple__27, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 324, __pyx_L2_error)
         __Pyx_GOTREF(__pyx_t_2);
         __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-        /* "fa2/fa2util.py":320
+        /* "fa2/fa2util.py":323
  *     import cython
  * 
  *     if not cython.compiled:             # <<<<<<<<<<<<<<
@@ -11368,7 +11417,7 @@ if (!__Pyx_RefNanny) {
  */
       }
 
-      /* "fa2/fa2util.py":317
+      /* "fa2/fa2util.py":320
  * 
  * 
  * try:             # <<<<<<<<<<<<<<
@@ -11384,7 +11433,7 @@ if (!__Pyx_RefNanny) {
     __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-    /* "fa2/fa2util.py":322
+    /* "fa2/fa2util.py":325
  *     if not cython.compiled:
  *         print("Warning: uncompiled fa2util module.  Compile with cython for a 10-100x speed boost.")
  * except:             # <<<<<<<<<<<<<<
@@ -11392,17 +11441,17 @@ if (!__Pyx_RefNanny) {
  */
     /*except:*/ {
       __Pyx_AddTraceback("fa2.fa2util", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_2, &__pyx_t_1, &__pyx_t_7) < 0) __PYX_ERR(0, 322, __pyx_L4_except_error)
+      if (__Pyx_GetException(&__pyx_t_2, &__pyx_t_1, &__pyx_t_7) < 0) __PYX_ERR(0, 325, __pyx_L4_except_error)
       __Pyx_GOTREF(__pyx_t_2);
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_GOTREF(__pyx_t_7);
 
-      /* "fa2/fa2util.py":323
+      /* "fa2/fa2util.py":326
  *         print("Warning: uncompiled fa2util module.  Compile with cython for a 10-100x speed boost.")
  * except:
  *     print("No cython detected.  Install cython and compile the fa2util module for a 10-100x speed boost.")             # <<<<<<<<<<<<<<
  */
-      __pyx_t_8 = __Pyx_PyObject_Call(__pyx_builtin_print, __pyx_tuple__28, NULL); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 323, __pyx_L4_except_error)
+      __pyx_t_8 = __Pyx_PyObject_Call(__pyx_builtin_print, __pyx_tuple__28, NULL); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 326, __pyx_L4_except_error)
       __Pyx_GOTREF(__pyx_t_8);
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
@@ -11412,7 +11461,7 @@ if (!__Pyx_RefNanny) {
     }
     __pyx_L4_except_error:;
 
-    /* "fa2/fa2util.py":317
+    /* "fa2/fa2util.py":320
  * 
  * 
  * try:             # <<<<<<<<<<<<<<
@@ -12276,6 +12325,46 @@ static CYTHON_INLINE PyObject* __Pyx_PyObject_CallNoArg(PyObject *func) {
     return __Pyx_PyObject_Call(func, __pyx_empty_tuple, NULL);
 }
 #endif
+
+/* pyobject_as_double */
+static double __Pyx__PyObject_AsDouble(PyObject* obj) {
+    PyObject* float_value;
+#if !CYTHON_USE_TYPE_SLOTS
+    float_value = PyNumber_Float(obj);  if ((0)) goto bad;
+#else
+    PyNumberMethods *nb = Py_TYPE(obj)->tp_as_number;
+    if (likely(nb) && likely(nb->nb_float)) {
+        float_value = nb->nb_float(obj);
+        if (likely(float_value) && unlikely(!PyFloat_Check(float_value))) {
+            PyErr_Format(PyExc_TypeError,
+                "__float__ returned non-float (type %.200s)",
+                Py_TYPE(float_value)->tp_name);
+            Py_DECREF(float_value);
+            goto bad;
+        }
+    } else if (PyUnicode_CheckExact(obj) || PyBytes_CheckExact(obj)) {
+#if PY_MAJOR_VERSION >= 3
+        float_value = PyFloat_FromString(obj);
+#else
+        float_value = PyFloat_FromString(obj, 0);
+#endif
+    } else {
+        PyObject* args = PyTuple_New(1);
+        if (unlikely(!args)) goto bad;
+        PyTuple_SET_ITEM(args, 0, obj);
+        float_value = PyObject_Call((PyObject*)&PyFloat_Type, args, 0);
+        PyTuple_SET_ITEM(args, 0, 0);
+        Py_DECREF(args);
+    }
+#endif
+    if (likely(float_value)) {
+        double value = PyFloat_AS_DOUBLE(float_value);
+        Py_DECREF(float_value);
+        return value;
+    }
+bad:
+    return (double)-1;
+}
 
 /* PyFloatBinop */
 #if !CYTHON_COMPILING_IN_PYPY
