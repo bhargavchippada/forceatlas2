@@ -67,7 +67,8 @@ setup(
     ],
     install_requires=['numpy', 'scipy', 'tqdm'],
     extras_require={
-        'networkx': ['networkx']
+        'networkx': ['networkx'],
+        'igraph': ['python-igraph']
     },
     include_package_data=True,
     **opts
