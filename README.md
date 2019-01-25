@@ -1,6 +1,6 @@
-## ForceAtlas2 for Python and NetworkX
+## ForceAtlas2 for Python
 
-A port of Gephi's Force Atlas 2 layout algorithm to Python 2 and Python 3 (with a wrapper for NetworkX). This is the fastest python implementation available with most of the features complete. It also supports Barnes Hut approximation for maximum speedup.
+A port of Gephi's Force Atlas 2 layout algorithm to Python 2 and Python 3 (with a wrapper for NetworkX and igraph). This is the fastest python implementation available with most of the features complete. It also supports Barnes Hut approximation for maximum speedup.
 
 ForceAtlas2 is a very fast layout algorithm for force directed graphs. The implementation is based on this [paper](http://journals.plos.org/plosone/article?id=10.1371/journal.pone.0098679) and the corresponding [gephi-java-code](https://github.com/gephi/gephi/blob/master/modules/LayoutPlugin/src/main/java/org/gephi/layout/plugin/forceAtlas2/ForceAtlas2.java). Its really quick compared to the fruchterman reingold algorithm (spring layout) of networkx and scales well to high number of nodes (>10000).
 
@@ -30,6 +30,7 @@ To build and install run from source:
 -   tqdm (progressbar)
 -   Cython (10-100x speedup)
 -   networkx (To use the NetworkX wrapper function, you obviously need NetworkX)
+-   python-igraph (for the igraph wrapper)
 
 <p align="center" text-align="center">
     <b>Spatialize a 2D Grid</b>
@@ -42,7 +43,7 @@ To build and install run from source:
 
 from fa2 import ForceAtlas2
 
-Create a ForceAtlas2 object with the appropriate settings. ForceAtlas2 class contains two important methods:
+Create a ForceAtlas2 object with the appropriate settings. ForceAtlas2 class contains three important methods:
 ```python
 forceatlas2 (G, pos, iterations)
 # G is a graph in 2D numpy ndarray format (or) scipy sparse matrix format
@@ -51,10 +52,18 @@ forceatlas2 (G, pos, iterations)
 ```
 ```python
 forceatlas2_networkx_layout(G, pos, iterations)
-# G is networkx graph
+# G is a networkx graph
 # pos is a dictionary, as in networkx
 # iterations is num of iterations to run the algorithm
 ```
+```python
+forceatlas2_igraph_layout(G, pos, iterations, weight_attr)
+# G is an igraph graph
+# pos is a numpy array or list
+# iterations is num of iterations to run the algorithm
+# weight_attr denotes the weight attributes in G.es, None by default
+```
+
 Below is an example usage. You can also see the feature settings of ForceAtlas2 class.
 
 ```python
@@ -90,6 +99,11 @@ nx.draw_networkx_nodes(G, positions, node_size=20, with_labels=False, node_color
 nx.draw_networkx_edges(G, positions, edge_color="green", alpha=0.05)
 plt.axis('off')
 plt.show()
+
+# equivalently
+G = igraph.Graph.TupleList(G.edges(), directed=False)
+layout = forceatlas2.forceatlas2_igraph_layout(G, pos=None, iterations=2000)
+igraph.plot(G, layout).show()
 ```
 You can also take a look at forceatlas2.py file for understanding the ForceAtlas2 class and its functions better.
 
