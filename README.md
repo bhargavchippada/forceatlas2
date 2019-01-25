@@ -2,7 +2,7 @@
 
 A port of Gephi's Force Atlas 2 layout algorithm to Python 2 and Python 3 (with a wrapper for NetworkX and igraph). This is the fastest python implementation available with most of the features complete. It also supports Barnes Hut approximation for maximum speedup.
 
-ForceAtlas2 is a very fast layout algorithm for force directed graphs. The implementation is based on this [paper](http://journals.plos.org/plosone/article?id=10.1371/journal.pone.0098679) and the corresponding [gephi-java-code](https://github.com/gephi/gephi/blob/master/modules/LayoutPlugin/src/main/java/org/gephi/layout/plugin/forceAtlas2/ForceAtlas2.java). Its really quick compared to the fruchterman reingold algorithm (spring layout) of networkx and scales well to high number of nodes (>10000).
+ForceAtlas2 is a very fast layout algorithm for force-directed graphs. It's used to spatialize a **weighted undirected** graph in 2D (Edge weight defines the strength of the connection). The implementation is based on this [paper](http://journals.plos.org/plosone/article?id=10.1371/journal.pone.0098679) and the corresponding [gephi-java-code](https://github.com/gephi/gephi/blob/master/modules/LayoutPlugin/src/main/java/org/gephi/layout/plugin/forceAtlas2/ForceAtlas2.java). Its really quick compared to the fruchterman reingold algorithm (spring layout) of networkx and scales well to high number of nodes (>10000).
 
 <p align="center" text-align="center">
     <b>Spatialize a random Geometric Graph</b>
@@ -30,7 +30,7 @@ To build and install run from source:
 -   tqdm (progressbar)
 -   Cython (10-100x speedup)
 -   networkx (To use the NetworkX wrapper function, you obviously need NetworkX)
--   python-igraph (for the igraph wrapper)
+-   python-igraph (To use the igraph wrapper)
 
 <p align="center" text-align="center">
     <b>Spatialize a 2D Grid</b>
@@ -46,24 +46,26 @@ from fa2 import ForceAtlas2
 Create a ForceAtlas2 object with the appropriate settings. ForceAtlas2 class contains three important methods:
 ```python
 forceatlas2 (G, pos, iterations)
-# G is a graph in 2D numpy ndarray format (or) scipy sparse matrix format
+# G is a graph in 2D numpy ndarray format (or) scipy sparse matrix format. You can set the edge weights (> 0) in the matrix
 # pos is a numpy array (Nx2) of initial positions of nodes
 # iterations is num of iterations to run the algorithm
+# returns a list of (x,y) pairs for each node's final position
 ```
 ```python
 forceatlas2_networkx_layout(G, pos, iterations)
-# G is a networkx graph
+# G is a networkx graph. Edge weights can be set (if required) in the Networkx graph
 # pos is a dictionary, as in networkx
 # iterations is num of iterations to run the algorithm
+# returns a dictionary of node positions (2D X-Y tuples) indexed by the node name
 ```
 ```python
 forceatlas2_igraph_layout(G, pos, iterations, weight_attr)
 # G is an igraph graph
-# pos is a numpy array or list
+# pos is a numpy array (Nx2) or list of initial positions of nodes (see that the indexing matches igraph node index)
 # iterations is num of iterations to run the algorithm
-# weight_attr denotes the weight attributes in G.es, None by default
+# weight_attr denotes the weight attribute's name in G.es, None by default
+# returns an igraph layout
 ```
-
 Below is an example usage. You can also see the feature settings of ForceAtlas2 class.
 
 ```python
@@ -101,6 +103,7 @@ plt.axis('off')
 plt.show()
 
 # equivalently
+import igraph
 G = igraph.Graph.TupleList(G.edges(), directed=False)
 layout = forceatlas2.forceatlas2_igraph_layout(G, pos=None, iterations=2000)
 igraph.plot(G, layout).show()

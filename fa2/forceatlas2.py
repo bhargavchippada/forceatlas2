@@ -253,16 +253,17 @@ class ForceAtlas2:
         from scipy.sparse import csr_matrix
         import igraph
 
-        # code from https://github.com/igraph/python-igraph/issues/72
         def to_sparse(graph, weight_attr=None):
             edges = graph.get_edgelist()
             if weight_attr is None:
                 weights = [1] * len(edges)
             else:
                 weights = graph.es[weight_attr]
+
             if not graph.is_directed():
                 edges.extend([(v, u) for u, v in edges])
                 weights.extend(weights)
+
             return csr_matrix((weights, zip(*edges)))
 
         assert isinstance(G, igraph.Graph), "Not a igraph graph"
