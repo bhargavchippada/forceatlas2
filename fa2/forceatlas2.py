@@ -86,7 +86,6 @@ class ForceAtlas2:
              G,  # a graph in 2D numpy ndarray format (or) scipy sparse matrix format
              pos=None  # Array of initial positions
              ):
-        print(self.seed)
         random.seed(a=self.seed)
         isSparse = False
         if isinstance(G, numpy.ndarray):
