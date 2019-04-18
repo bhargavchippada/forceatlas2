@@ -154,7 +154,8 @@ class ForceAtlas2:
     def forceatlas2(self,
                     G,  # a graph in 2D numpy ndarray format (or) scipy sparse matrix format
                     pos=None,  # Array of initial positions
-                    iterations=100  # Number of times to iterate the main loop
+                    iterations=100,  # Number of times to iterate the main loop
+                    keep_history=False # Whether or not to return the historical values while fa2 is running
                     ):
         # Initializing, initAlgo()
         # ================================================================
@@ -183,6 +184,7 @@ class ForceAtlas2:
         niters = range(iterations)
         if self.verbose:
             niters = tqdm(niters)
+        history = []
         for _i in niters:
             for n in nodes:
                 n.old_dx = n.dx
@@ -224,6 +226,11 @@ class ForceAtlas2:
             speedEfficiency = values['speedEfficiency']
             applyforces_timer.stop()
 
+            # Add current positions to history
+            if keep_history:
+                positions = [(n.x, n.y) for n in nodes]
+                history.append(positions)
+
         if self.verbose:
             if self.barnesHutOptimize:
                 barneshut_timer.display()
@@ -232,23 +239,29 @@ class ForceAtlas2:
             attraction_timer.display()
             applyforces_timer.display()
         # ================================================================
-        return [(n.x, n.y) for n in nodes]
+        if not keep_history:
+            return [(n.x, n.y) for n in nodes]
+        else:
+            return positions, history
 
     # A layout for NetworkX.
     #
     # This function returns a NetworkX layout, which is really just a
     # dictionary of node positions (2D X-Y tuples) indexed by the node name.
-    def forceatlas2_networkx_layout(self, G, pos=None, iterations=100):
+    def forceatlas2_networkx_layout(self, G, pos=None, iterations=100, keep_history=False):
         import networkx
         assert isinstance(G, networkx.classes.graph.Graph), "Not a networkx graph"
         assert isinstance(pos, dict) or (pos is None), "pos must be specified as a dictionary, as in networkx"
         M = networkx.to_scipy_sparse_matrix(G, dtype='f', format='lil')
         if pos is None:
-            l = self.forceatlas2(M, pos=None, iterations=iterations)
+            l = self.forceatlas2(M, pos=None, iterations=iterations, keep_history=keep_history)
         else:
             poslist = numpy.asarray([pos[i] for i in G.nodes()])
-            l = self.forceatlas2(M, pos=poslist, iterations=iterations)
-        return dict(zip(G.nodes(), l))
+            l = self.forceatlas2(M, pos=poslist, iterations=iterations, keep_history=keep_history)
+        if not keep_history:
+            return dict(zip(G.nodes(), l))
+        else:
+            return [dict(zip(G.nodes(), i)) for i in l[1]]
 
     # A layout for igraph.
     #
