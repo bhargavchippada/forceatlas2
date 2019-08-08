@@ -235,7 +235,15 @@ class ForceAtlas2:
     # dictionary of node positions (2D X-Y tuples) indexed by the node name.
     def forceatlas2_networkx_layout(self, G, pos=None, iterations=100):
         import networkx
-        assert isinstance(G, networkx.classes.graph.Graph), "Not a networkx graph"
+        try:
+            import cynetworkx
+        except ImportError:
+            cynetworkx = None
+
+        assert (
+            isinstance(G, networkx.classes.graph.Graph)
+            or (cynetworkx and isinstance(G, cynetworkx.classes.graph.Graph))
+        ), "Not a networkx graph"
         assert isinstance(pos, dict) or (pos is None), "pos must be specified as a dictionary, as in networkx"
         M = networkx.to_scipy_sparse_matrix(G, dtype='f', format='lil')
         if pos is None:
