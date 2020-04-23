@@ -233,7 +233,7 @@ class ForceAtlas2:
     #
     # This function returns a NetworkX layout, which is really just a
     # dictionary of node positions (2D X-Y tuples) indexed by the node name.
-    def forceatlas2_networkx_layout(self, G, pos=None, iterations=100):
+    def forceatlas2_networkx_layout(self, G, pos=None, iterations=100, weight_attr=None):
         import networkx
         try:
             import cynetworkx
@@ -245,7 +245,7 @@ class ForceAtlas2:
             or (cynetworkx and isinstance(G, cynetworkx.classes.graph.Graph))
         ), "Not a networkx graph"
         assert isinstance(pos, dict) or (pos is None), "pos must be specified as a dictionary, as in networkx"
-        M = networkx.to_scipy_sparse_matrix(G, dtype='f', format='lil')
+        M = networkx.to_scipy_sparse_matrix(G, dtype='f', format='lil', weight=weight_attr)
         if pos is None:
             l = self.forceatlas2(M, pos=None, iterations=iterations)
         else:
