@@ -23,6 +23,7 @@ class Node:
         self.dy = 0.0
         self.x = 0.0
         self.y = 0.0
+        self.size = 0.
 
 
 # This is not in the original java code, but it makes it easier to deal with edges
@@ -38,18 +39,27 @@ class Edge:
 
 # Repulsion function.  `n1` and `n2` should be nodes.  This will
 # adjust the dx and dy values of `n1`  `n2`
-def linRepulsion(n1, n2, coefficient=0):
+def linRepulsion(n1, n2, coefficient=0, anticollision=False):
     xDist = n1.x - n2.x
     yDist = n1.y - n2.y
-    distance2 = xDist * xDist + yDist * yDist  # Distance squared
+    
+    distance = sqrt(xDist * xDist + yDist * yDist) 
 
-    if distance2 > 0:
-        factor = coefficient * n1.mass * n2.mass / distance2
-        n1.dx += xDist * factor
-        n1.dy += yDist * factor
-        n2.dx -= xDist * factor
-        n2.dy -= yDist * factor
-
+    if anticollision:
+        distance -=  n1.size + n2.size
+    
+    if distance > 0: # Clearly distance is always positive without collision detection
+        factor = coefficient * n1.mass * n2.mass / distance**2
+    elif distance < 0: # If the distance is smaller than the sum of radiuses then increase the repulsion
+        factor = 100 * coefficient * n1.mass * n2.mass
+        
+    else: # If distance is 0 do nothing
+        return
+    # Apply the force
+    n1.dx += xDist * factor
+    n1.dy += yDist * factor
+    n2.dx -= xDist * factor
+    n2.dy -= yDist * factor
 
 # Repulsion function. 'n' is node and 'r' is region
 def linRepulsion_region(n, r, coefficient=0):
@@ -94,30 +104,36 @@ def strongGravity(n, g, coefficient=0):
 # Attraction function.  `n1` and `n2` should be nodes.  This will
 # adjust the dx and dy values of `n1` and `n2`.  It does
 # not return anything.
-def linAttraction(n1, n2, e, distributedAttraction, coefficient=0):
+def linAttraction(n1, n2, e, distributedAttraction, coefficient=0, anticollision=False):
     xDist = n1.x - n2.x
     yDist = n1.y - n2.y
-    if not distributedAttraction:
-        factor = -coefficient * e
-    else:
-        factor = -coefficient * e / n1.mass
-    n1.dx += xDist * factor
-    n1.dy += yDist * factor
-    n2.dx -= xDist * factor
-    n2.dy -= yDist * factor
-
+    
+    distance = 1.
+    if anticollision:
+        # Check if the nodes are colliding
+        distance = sqrt(xDist * xDist + yDist * yDist) - n1.size - n2.size
+    
+    if distance > 0:
+        if not distributedAttraction:
+            factor = -coefficient * e
+        else:
+            factor = -coefficient * e / n1.mass
+        n1.dx += xDist * factor
+        n1.dy += yDist * factor
+        n2.dx -= xDist * factor
+        n2.dy -= yDist * factor
 
 # The following functions iterate through the nodes or edges and apply
 # the forces directly to the node objects.  These iterations are here
 # instead of the main file because Python is slow with loops.
-def apply_repulsion(nodes, coefficient):
+def apply_repulsion(nodes, coefficient, anticollision=False):
     i = 0
     for n1 in nodes:
         j = i
         for n2 in nodes:
             if j == 0:
                 break
-            linRepulsion(n1, n2, coefficient)
+            linRepulsion(n1, n2, coefficient, anticollision)
             j -= 1
         i += 1
 
@@ -131,18 +147,18 @@ def apply_gravity(nodes, gravity, useStrongGravity=False):
             strongGravity(n, gravity)
 
 
-def apply_attraction(nodes, edges, distributedAttraction, coefficient, edgeWeightInfluence):
+def apply_attraction(nodes, edges, distributedAttraction, coefficient, edgeWeightInfluence, anticollision=False):
     # Optimization, since usually edgeWeightInfluence is 0 or 1, and pow is slow
     if edgeWeightInfluence == 0:
         for edge in edges:
-            linAttraction(nodes[edge.node1], nodes[edge.node2], 1, distributedAttraction, coefficient)
+            linAttraction(nodes[edge.node1], nodes[edge.node2], 1, distributedAttraction, coefficient, anticollision=anticollision)
     elif edgeWeightInfluence == 1:
         for edge in edges:
-            linAttraction(nodes[edge.node1], nodes[edge.node2], edge.weight, distributedAttraction, coefficient)
+            linAttraction(nodes[edge.node1], nodes[edge.node2], edge.weight, distributedAttraction, coefficient, anticollision=anticollision)
     else:
         for edge in edges:
             linAttraction(nodes[edge.node1], nodes[edge.node2], pow(edge.weight, edgeWeightInfluence),
-                          distributedAttraction, coefficient)
+                          distributedAttraction, coefficient, anticollision=anticollision)
 
 
 # For Barnes Hut Optimization
@@ -239,24 +255,24 @@ class Region:
             for subregion in self.subregions:
                 subregion.buildSubRegions()
 
-    def applyForce(self, n, theta, coefficient=0):
+    def applyForce(self, n, theta, coefficient=0, anticollision=False):
         if len(self.nodes) < 2:
-            linRepulsion(n, self.nodes[0], coefficient)
+            linRepulsion(n, self.nodes[0], coefficient, anticollision=anticollision)
         else:
             distance = sqrt((n.x - self.massCenterX) ** 2 + (n.y - self.massCenterY) ** 2)
             if distance * theta > self.size:
                 linRepulsion_region(n, self, coefficient)
             else:
                 for subregion in self.subregions:
-                    subregion.applyForce(n, theta, coefficient)
+                    subregion.applyForce(n, theta, coefficient, anticollision=anticollision)
 
-    def applyForceOnNodes(self, nodes, theta, coefficient=0):
+    def applyForceOnNodes(self, nodes, theta, coefficient=0, anticollision=False): 
         for n in nodes:
-            self.applyForce(n, theta, coefficient)
+            self.applyForce(n, theta, coefficient, anticollision=anticollision)
 
 
 # Adjust speed and apply forces step
-def adjustSpeedAndApplyForces(nodes, speed, speedEfficiency, jitterTolerance):
+def adjustSpeedAndApplyForces(nodes, speed, speedEfficiency, jitterTolerance, anticollision=False):
     # Auto adjust speed.
     totalSwinging = 0.0  # How much irregular movement
     totalEffectiveTraction = 0.0  # How much useful movement
@@ -306,7 +322,14 @@ def adjustSpeedAndApplyForces(nodes, speed, speedEfficiency, jitterTolerance):
     # implemented.
     for n in nodes:
         swinging = n.mass * sqrt((n.old_dx - n.dx) * (n.old_dx - n.dx) + (n.old_dy - n.dy) * (n.old_dy - n.dy))
-        factor = speed / (1.0 + sqrt(speed * swinging))
+
+        if anticollision:
+            factor = 0.1 * speed / (1.0 + sqrt(speed * swinging))
+            df = sqrt(n.dx**2 + n.dy**2)
+            factor = min(factor * df, 10.) / df
+        else:
+            factor = speed / (1.0 + sqrt(speed * swinging))
+        
         n.x = n.x + (n.dx * factor)
         n.y = n.y + (n.dy * factor)
 
