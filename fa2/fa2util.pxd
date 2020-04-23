@@ -68,7 +68,7 @@ cpdef void linAttraction(Node n1, Node n2, double e, bint distributedAttraction,
 cpdef void apply_repulsion(list nodes, double coefficient)
 
 @cython.locals(n = Node)
-cpdef void apply_gravity(list nodes, double gravity, bint useStrongGravity=*)
+cpdef void apply_gravity(list nodes, double gravity, double scalingRatio, bint useStrongGravity=*)
 
 @cython.locals(edge = Edge)
 cpdef void apply_attraction(list nodes, list edges, bint distributedAttraction, double coefficient, double edgeWeightInfluence)

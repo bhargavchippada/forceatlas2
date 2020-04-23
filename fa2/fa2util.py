@@ -122,13 +122,13 @@ def apply_repulsion(nodes, coefficient):
         i += 1
 
 
-def apply_gravity(nodes, gravity, useStrongGravity=False):
+def apply_gravity(nodes, gravity, scalingRatio, useStrongGravity=False):
     if not useStrongGravity:
         for n in nodes:
             linGravity(n, gravity)
     else:
         for n in nodes:
-            strongGravity(n, gravity)
+            strongGravity(n, gravity, scalingRatio)
 
 
 def apply_attraction(nodes, edges, distributedAttraction, coefficient, edgeWeightInfluence):

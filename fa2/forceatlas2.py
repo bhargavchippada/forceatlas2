@@ -203,7 +203,7 @@ class ForceAtlas2:
 
             # Gravitational forces
             gravity_timer.start()
-            fa2util.apply_gravity(nodes, self.gravity, useStrongGravity=self.strongGravityMode)
+            fa2util.apply_gravity(nodes, self.gravity, scalingRatio=self.scalingRatio, useStrongGravity=self.strongGravityMode)
             gravity_timer.stop()
 
             # If other forms of attraction were implemented they would be selected here.
