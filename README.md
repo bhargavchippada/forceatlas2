@@ -78,7 +78,7 @@ G = nx.random_geometric_graph(400, 0.2)
 forceatlas2 = ForceAtlas2(
                         # Behavior alternatives
                         outboundAttractionDistribution=True,  # Dissuade hubs
-                        linLogMode=False,  # NOT IMPLEMENTED
+                        linLogMode=False,
                         adjustSizes=False,  # Prevent overlap (NOT IMPLEMENTED)
                         edgeWeightInfluence=1.0,
 

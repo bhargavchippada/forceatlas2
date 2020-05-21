@@ -48,7 +48,7 @@ class ForceAtlas2:
     def __init__(self,
                  # Behavior alternatives
                  outboundAttractionDistribution=False,  # Dissuade hubs
-                 linLogMode=False,  # NOT IMPLEMENTED
+                 linLogMode=False,
                  adjustSizes=False,  # Prevent overlap (NOT IMPLEMENTED)
                  edgeWeightInfluence=1.0,
 
@@ -65,7 +65,7 @@ class ForceAtlas2:
 
                  # Log
                  verbose=True):
-        assert linLogMode == adjustSizes == multiThreaded == False, "You selected a feature that has not been implemented yet..."
+        assert adjustSizes == multiThreaded == False, "You selected a feature that has not been implemented yet..."
         self.outboundAttractionDistribution = outboundAttractionDistribution
         self.linLogMode = linLogMode
         self.adjustSizes = adjustSizes
@@ -209,7 +209,7 @@ class ForceAtlas2:
             # If other forms of attraction were implemented they would be selected here.
             attraction_timer.start()
             fa2util.apply_attraction(nodes, edges, self.outboundAttractionDistribution, outboundAttCompensation,
-                                     self.edgeWeightInfluence)
+                                     self.edgeWeightInfluence, self.linLogMode)
             attraction_timer.stop()
 
             # Adjust speeds and apply forces
