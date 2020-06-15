@@ -61,6 +61,11 @@ cdef void strongGravity(Node n, double g, double coefficient=*)
                factor = cython.double)
 cpdef void linAttraction(Node n1, Node n2, double e, bint distributedAttraction, double coefficient=*)
 
+@cython.locals(xDist = cython.double, 
+               yDist = cython.double, 
+               factor = cython.double)
+cpdef void logAttraction(Node n1, Node n2, double e, bint distributedAttraction, double coefficient=*)
+
 @cython.locals(i = cython.int,
                j = cython.int,
                n1 = Node,
@@ -71,7 +76,7 @@ cpdef void apply_repulsion(list nodes, double coefficient)
 cpdef void apply_gravity(list nodes, double gravity, double scalingRatio, bint useStrongGravity=*)
 
 @cython.locals(edge = Edge)
-cpdef void apply_attraction(list nodes, list edges, bint distributedAttraction, double coefficient, double edgeWeightInfluence)
+cpdef void apply_attraction(list nodes, list edges, bint distributedAttraction, double coefficient, double edgeWeightInfluence, bint linLogMode)
 
 cdef class Region:
     cdef public double mass
