@@ -279,7 +279,7 @@ def adjustSpeedAndApplyForces(nodes, speed, speedEfficiency, jitterTolerance):
     minSpeedEfficiency = 0.05
 
     # Protective against erratic behavior
-    if totalSwinging / totalEffectiveTraction > 2.0:
+    if totalEffectiveTraction and totalSwinging / totalEffectiveTraction > 2.0:
         if speedEfficiency > minSpeedEfficiency:
             speedEfficiency *= .5
         jt = max(jt, jitterTolerance)
