@@ -175,30 +175,24 @@ class Region:
 
     def buildSubRegions(self):
         if len(self.nodes) > 1:
-
-            leftNodes = []
-            rightNodes = []
-            for n in self.nodes:
-                if n.x < self.massCenterX:
-                    leftNodes.append(n)
-                else:
-                    rightNodes.append(n)
-
             topleftNodes = []
             bottomleftNodes = []
-            for n in leftNodes:
-                if n.y < self.massCenterY:
-                    bottomleftNodes.append(n)
-                else:
-                    topleftNodes.append(n)
-
             toprightNodes = []
             bottomrightNodes = []
-            for n in rightNodes:
-                if n.y < self.massCenterY:
-                    bottomrightNodes.append(n)
+            # Optimization: The distribution of self.nodes into 
+            # subregions now requires only one for loop. Removed 
+            # topNodes and bottomNodes arrays: memory space saving.
+            for n in self.nodes:
+                if n.x < self.massCenterX:
+                    if n.y < self.massCenterY:
+                        bottomleftNodes.append(n)
+                    else:
+                        topleftNodes.append(n)
                 else:
-                    toprightNodes.append(n)
+                    if n.y < self.massCenterY:
+                        bottomrightNodes.append(n)
+                    else:
+                        toprightNodes.append(n)      
 
             if len(topleftNodes) > 0:
                 if len(topleftNodes) < len(self.nodes):
