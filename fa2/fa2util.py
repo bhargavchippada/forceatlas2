@@ -188,17 +188,17 @@ class Region:
             bottomleftNodes = []
             for n in leftNodes:
                 if n.y < self.massCenterY:
-                    topleftNodes.append(n)
-                else:
                     bottomleftNodes.append(n)
+                else:
+                    topleftNodes.append(n)
 
             toprightNodes = []
             bottomrightNodes = []
             for n in rightNodes:
                 if n.y < self.massCenterY:
-                    toprightNodes.append(n)
-                else:
                     bottomrightNodes.append(n)
+                else:
+                    toprightNodes.append(n)
 
             if len(topleftNodes) > 0:
                 if len(topleftNodes) < len(self.nodes):
