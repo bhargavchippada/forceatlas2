@@ -23,7 +23,7 @@ import time
 
 import numpy
 import scipy
-from tqdm import tqdm
+import tqdm
 
 from . import fa2util
 
@@ -64,7 +64,9 @@ class ForceAtlas2:
                  gravity=1.0,
 
                  # Log
-                 verbose=True):
+                 verbose=True,
+                 notebookStyle=False):
+        
         assert linLogMode == adjustSizes == multiThreaded == False, "You selected a feature that has not been implemented yet..."
         self.outboundAttractionDistribution = outboundAttractionDistribution
         self.linLogMode = linLogMode
@@ -77,6 +79,7 @@ class ForceAtlas2:
         self.strongGravityMode = strongGravityMode
         self.gravity = gravity
         self.verbose = verbose
+        self.notebookStyle = notebookStyle
 
     def init(self,
              G,  # a graph in 2D numpy ndarray format (or) scipy sparse matrix format
@@ -177,7 +180,10 @@ class ForceAtlas2:
         # Each iteration of this loop represents a call to goAlgo().
         niters = range(iterations)
         if self.verbose:
-            niters = tqdm(niters)
+            if self.notebookStyle:
+                niters = tqdm.notebook.tqdm(niters)
+            else:
+                niters = tqdm.tqdm(niters)
         for _i in niters:
             for n in nodes:
                 n.old_dx = n.dx
