@@ -94,7 +94,8 @@ forceatlas2 = ForceAtlas2(
                         gravity=1.0,
 
                         # Log
-                        verbose=True)
+                        verbose=True,
+                        notebookStyle=False)
 
 positions = forceatlas2.forceatlas2_networkx_layout(G, pos=None, iterations=2000)
 nx.draw_networkx_nodes(G, positions, node_size=20, with_labels=False, node_color="blue", alpha=0.4)
@@ -118,7 +119,7 @@ You can also take a look at forceatlas2.py file for understanding the ForceAtlas
 -   **scalingRatio**: How much repulsion you want. More makes a more sparse graph
 -   **strongGravityMode**: A stronger gravity view
 -   **jitterTolerance**: How much swinging you allow. Above 1 discouraged. Lower gives less speed and more precision
--   **verbose**: Shows a progressbar of iterations completed. Also, shows time taken for different force computations
+-   **verbose**: Shows a progressbar of iterations completed. Also, shows time taken for different force computations (set notebookStyle to True to use notebook friendly progress bar)
 -   **edgeWeightInfluence**: How much influence you give to the edges weight. 0 is "no influence" and 1 is "normal"
 
 ## Documentation
