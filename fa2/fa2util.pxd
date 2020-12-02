@@ -87,8 +87,6 @@ cdef class Region:
     cdef void updateMassAndGeometry(self)
 
     @cython.locals(n = Node,
-                   leftNodes = list,
-                   rightNodes = list,
                    topleftNodes = list,
                    bottomleftNodes = list,
                    toprightNodes = list,
