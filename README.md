@@ -118,7 +118,7 @@ You can also take a look at forceatlas2.py file for understanding the ForceAtlas
 -   **scalingRatio**: How much repulsion you want. More makes a more sparse graph
 -   **strongGravityMode**: A stronger gravity view
 -   **jitterTolerance**: How much swinging you allow. Above 1 discouraged. Lower gives less speed and more precision
--   **verbose**: Shows a progressbar of iterations completed. Also, shows time taken for different force computations (set notebookStyle to True to use notebook friendly progress bar)
+-   **verbose**: Shows a progressbar of iterations completed. Also, shows time taken for different force computations
 -   **edgeWeightInfluence**: How much influence you give to the edges weight. 0 is "no influence" and 1 is "normal"
 
 ## Documentation
