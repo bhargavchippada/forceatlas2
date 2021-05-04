@@ -65,7 +65,6 @@ class ForceAtlas2:
 
                  # Log
                  verbose=True):
-        
         assert linLogMode == adjustSizes == multiThreaded == False, "You selected a feature that has not been implemented yet..."
         self.outboundAttractionDistribution = outboundAttractionDistribution
         self.linLogMode = linLogMode
@@ -178,7 +177,7 @@ class ForceAtlas2:
         # Each iteration of this loop represents a call to goAlgo().
         niters = range(iterations)
         if self.verbose:
-            niters = tqdm.tqdm(niters)
+            niters = tqdm(niters)
         for _i in niters:
             for n in nodes:
                 n.old_dx = n.dx
