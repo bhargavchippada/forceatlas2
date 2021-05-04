@@ -23,7 +23,7 @@ import time
 
 import numpy
 import scipy
-from tqdm import tqdm
+from tqdm.auto impor tqdm
 
 from . import fa2util
 
