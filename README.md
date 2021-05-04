@@ -94,8 +94,7 @@ forceatlas2 = ForceAtlas2(
                         gravity=1.0,
 
                         # Log
-                        verbose=True,
-                        notebookStyle=False)
+                        verbose=True)
 
 positions = forceatlas2.forceatlas2_networkx_layout(G, pos=None, iterations=2000)
 nx.draw_networkx_nodes(G, positions, node_size=20, with_labels=False, node_color="blue", alpha=0.4)
