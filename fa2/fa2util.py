@@ -250,7 +250,7 @@ class Region:
 
 
 # Adjust speed and apply forces step
-def adjustSpeedAndApplyForces(nodes, speed, speedEfficiency, jitterTolerance):
+def adjustSpeedAndApplyForces(nodes, speed, speedEfficiency, jitterTolerance, adjustSizes):
     # Auto adjust speed.
     totalSwinging = 0.0  # How much irregular movement
     totalEffectiveTraction = 0.0  # How much useful movement
@@ -298,11 +298,23 @@ def adjustSpeedAndApplyForces(nodes, speed, speedEfficiency, jitterTolerance):
     #
     # Need to add a case if adjustSizes ("prevent overlap") is
     # implemented.
-    for n in nodes:
-        swinging = n.mass * sqrt((n.old_dx - n.dx) * (n.old_dx - n.dx) + (n.old_dy - n.dy) * (n.old_dy - n.dy))
-        factor = speed / (1.0 + sqrt(speed * swinging))
-        n.x = n.x + (n.dx * factor)
-        n.y = n.y + (n.dy * factor)
+    if adjustSizes:
+        print("ADJUSTING SIZES")
+        for n in nodes:
+            swinging = n.mass * sqrt((n.old_dx - n.dx) * (n.old_dx - n.dx) + (n.old_dy - n.dy) * (n.old_dy - n.dy))
+            factor = 0.1*speed / (1.0 + sqrt(speed * swinging))
+            df = sqrt(n.dx*n.dx + n.dy*n.dy)
+            factor = min(factor*df, 10.0)/df
+
+            n.x = n.x + (n.dx * factor)
+            n.y = n.y + (n.dy * factor)
+
+    else:
+        for n in nodes:
+            swinging = n.mass * sqrt((n.old_dx - n.dx) * (n.old_dx - n.dx) + (n.old_dy - n.dy) * (n.old_dy - n.dy))
+            factor = speed / (1.0 + sqrt(speed * swinging))
+            n.x = n.x + (n.dx * factor)
+            n.y = n.y + (n.dy * factor)
 
     values = {}
     values['speed'] = speed

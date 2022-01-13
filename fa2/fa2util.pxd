@@ -117,4 +117,4 @@ cdef class Region:
                maxRise = cython.double,
                factor = cython.double,
                values = dict)
-cpdef dict adjustSpeedAndApplyForces(list nodes, double speed, double speedEfficiency, double jitterTolerance)
+cpdef dict adjustSpeedAndApplyForces(list nodes, double speed, double speedEfficiency, double jitterTolerance, int adjustSizes)

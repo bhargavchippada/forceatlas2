@@ -49,7 +49,7 @@ class ForceAtlas2:
                  # Behavior alternatives
                  outboundAttractionDistribution=False,  # Dissuade hubs
                  linLogMode=False,  # NOT IMPLEMENTED
-                 adjustSizes=False,  # Prevent overlap (NOT IMPLEMENTED)
+                 adjustSizes=False,  # Prevent overlap
                  edgeWeightInfluence=1.0,
 
                  # Performance
@@ -65,7 +65,8 @@ class ForceAtlas2:
 
                  # Log
                  verbose=True):
-        assert linLogMode == adjustSizes == multiThreaded == False, "You selected a feature that has not been implemented yet..."
+        # assert linLogMode == adjustSizes == multiThreaded == False, "You selected a feature that has not been implemented yet..."
+        assert linLogMode == multiThreaded == False, "You selected a feature that has not been implemented yet..."
         self.outboundAttractionDistribution = outboundAttractionDistribution
         self.linLogMode = linLogMode
         self.adjustSizes = adjustSizes
@@ -213,8 +214,9 @@ class ForceAtlas2:
             attraction_timer.stop()
 
             # Adjust speeds and apply forces
+            ### added self.adjustSizes
             applyforces_timer.start()
-            values = fa2util.adjustSpeedAndApplyForces(nodes, speed, speedEfficiency, self.jitterTolerance)
+            values = fa2util.adjustSpeedAndApplyForces(nodes, speed, speedEfficiency, self.jitterTolerance, self.adjustSizes)
             speed = values['speed']
             speedEfficiency = values['speedEfficiency']
             applyforces_timer.stop()
