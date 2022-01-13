@@ -295,11 +295,7 @@ def adjustSpeedAndApplyForces(nodes, speed, speedEfficiency, jitterTolerance, ad
     speed = speed + min(targetSpeed - speed, maxRise * speed)
 
     # Apply forces.
-    #
-    # Need to add a case if adjustSizes ("prevent overlap") is
-    # implemented.
     if adjustSizes:
-        print("ADJUSTING SIZES")
         for n in nodes:
             swinging = n.mass * sqrt((n.old_dx - n.dx) * (n.old_dx - n.dx) + (n.old_dy - n.dy) * (n.old_dy - n.dy))
             factor = 0.1*speed / (1.0 + sqrt(speed * swinging))

@@ -65,7 +65,6 @@ class ForceAtlas2:
 
                  # Log
                  verbose=True):
-        # assert linLogMode == adjustSizes == multiThreaded == False, "You selected a feature that has not been implemented yet..."
         assert linLogMode == multiThreaded == False, "You selected a feature that has not been implemented yet..."
         self.outboundAttractionDistribution = outboundAttractionDistribution
         self.linLogMode = linLogMode
