@@ -10,7 +10,7 @@
 #
 # Available under the GPLv3
 
-from math import sqrt
+from math import sqrt, log
 
 
 # This will substitute for the nLayout object
@@ -107,6 +107,29 @@ def linAttraction(n1, n2, e, distributedAttraction, coefficient=0):
     n2.dy -= yDist * factor
 
 
+# Log attraction function. logAttraction in gephi
+def logAttraction(n1, n2, e, distributedAttraction, coefficient=0):
+    xDist = n1.x - n2.x
+    yDist = n1.y - n2.y
+    if not distributedAttraction:
+        factor = -coefficient * e
+    else:
+        factor = -coefficient * e / n1.mass
+
+    xDist = n1.x - n2.x;
+    yDist = n1.y - n2.y;
+    distance = sqrt(xDist * xDist + yDist * yDist)
+
+    if distance > 0:
+        # NB: factor = force / distance
+        factor = -coefficient * e * log(1 + distance) / distance
+
+        n1.dx += xDist * factor
+        n1.dy += yDist * factor
+        n2.dx -= xDist * factor
+        n2.dy -= yDist * factor
+
+
 # The following functions iterate through the nodes or edges and apply
 # the forces directly to the node objects.  These iterations are here
 # instead of the main file because Python is slow with loops.
@@ -131,18 +154,31 @@ def apply_gravity(nodes, gravity, scalingRatio, useStrongGravity=False):
             strongGravity(n, gravity, scalingRatio)
 
 
-def apply_attraction(nodes, edges, distributedAttraction, coefficient, edgeWeightInfluence):
-    # Optimization, since usually edgeWeightInfluence is 0 or 1, and pow is slow
-    if edgeWeightInfluence == 0:
-        for edge in edges:
-            linAttraction(nodes[edge.node1], nodes[edge.node2], 1, distributedAttraction, coefficient)
-    elif edgeWeightInfluence == 1:
-        for edge in edges:
-            linAttraction(nodes[edge.node1], nodes[edge.node2], edge.weight, distributedAttraction, coefficient)
+def apply_attraction(nodes, edges, distributedAttraction, coefficient, edgeWeightInfluence, linLogMode):
+    if linLogMode:
+        # Optimization, since usually edgeWeightInfluence is 0 or 1, and pow is slow
+        if edgeWeightInfluence == 0:
+            for edge in edges:
+                logAttraction(nodes[edge.node1], nodes[edge.node2], 1, distributedAttraction, coefficient)
+        elif edgeWeightInfluence == 1:
+            for edge in edges:
+                logAttraction(nodes[edge.node1], nodes[edge.node2], edge.weight, distributedAttraction, coefficient)
+        else:
+            for edge in edges:
+                logAttraction(nodes[edge.node1], nodes[edge.node2], pow(edge.weight, edgeWeightInfluence),
+                            distributedAttraction, coefficient)
     else:
-        for edge in edges:
-            linAttraction(nodes[edge.node1], nodes[edge.node2], pow(edge.weight, edgeWeightInfluence),
-                          distributedAttraction, coefficient)
+        # Optimization, since usually edgeWeightInfluence is 0 or 1, and pow is slow
+        if edgeWeightInfluence == 0:
+            for edge in edges:
+                linAttraction(nodes[edge.node1], nodes[edge.node2], 1, distributedAttraction, coefficient)
+        elif edgeWeightInfluence == 1:
+            for edge in edges:
+                linAttraction(nodes[edge.node1], nodes[edge.node2], edge.weight, distributedAttraction, coefficient)
+        else:
+            for edge in edges:
+                linAttraction(nodes[edge.node1], nodes[edge.node2], pow(edge.weight, edgeWeightInfluence),
+                            distributedAttraction, coefficient)
 
 
 # For Barnes Hut Optimization
@@ -175,24 +211,30 @@ class Region:
 
     def buildSubRegions(self):
         if len(self.nodes) > 1:
-            topleftNodes = []
-            bottomleftNodes = []
-            toprightNodes = []
-            bottomrightNodes = []
-            # Optimization: The distribution of self.nodes into 
-            # subregions now requires only one for loop. Removed 
-            # topNodes and bottomNodes arrays: memory space saving.
+
+            leftNodes = []
+            rightNodes = []
             for n in self.nodes:
                 if n.x < self.massCenterX:
-                    if n.y < self.massCenterY:
-                        bottomleftNodes.append(n)
-                    else:
-                        topleftNodes.append(n)
+                    leftNodes.append(n)
                 else:
-                    if n.y < self.massCenterY:
-                        bottomrightNodes.append(n)
-                    else:
-                        toprightNodes.append(n)      
+                    rightNodes.append(n)
+
+            topleftNodes = []
+            bottomleftNodes = []
+            for n in leftNodes:
+                if n.y < self.massCenterY:
+                    topleftNodes.append(n)
+                else:
+                    bottomleftNodes.append(n)
+
+            toprightNodes = []
+            bottomrightNodes = []
+            for n in rightNodes:
+                if n.y < self.massCenterY:
+                    toprightNodes.append(n)
+                else:
+                    bottomrightNodes.append(n)
 
             if len(topleftNodes) > 0:
                 if len(topleftNodes) < len(self.nodes):
@@ -273,7 +315,7 @@ def adjustSpeedAndApplyForces(nodes, speed, speedEfficiency, jitterTolerance):
     minSpeedEfficiency = 0.05
 
     # Protective against erratic behavior
-    if totalEffectiveTraction and totalSwinging / totalEffectiveTraction > 2.0:
+    if totalSwinging / totalEffectiveTraction > 2.0:
         if speedEfficiency > minSpeedEfficiency:
             speedEfficiency *= .5
         jt = max(jt, jitterTolerance)
