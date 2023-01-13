@@ -245,7 +245,7 @@ class ForceAtlas2:
             or (cynetworkx and isinstance(G, cynetworkx.classes.graph.Graph))
         ), "Not a networkx graph"
         assert isinstance(pos, dict) or (pos is None), "pos must be specified as a dictionary, as in networkx"
-        M = networkx.to_scipy_sparse_matrix(G, dtype='f', format='lil', weight=weight_attr)
+        M = networkx.to_scipy_sparse_array(G, dtype='f', format='lil', weight=weight_attr)
         if pos is None:
             l = self.forceatlas2(M, pos=None, iterations=iterations)
         else:
@@ -258,8 +258,8 @@ class ForceAtlas2:
     # This function returns an igraph layout
     def forceatlas2_igraph_layout(self, G, pos=None, iterations=100, weight_attr=None):
 
-        from scipy.sparse import csr_matrix
         import igraph
+        from scipy.sparse import csr_matrix
 
         def to_sparse(graph, weight_attr=None):
             edges = graph.get_edgelist()
