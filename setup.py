@@ -14,7 +14,7 @@ with open(path.join(here, 'README.md'), 'r') as f:
 print(">>>> Cython is installed?")
 try:
     from Cython.Distutils import Extension
-    from Cython.Build import build_ext
+    from Cython.Build import build_ext, cythonize
     USE_CYTHON = True
     print('Yes\n')
 except ImportError:
@@ -25,7 +25,7 @@ except ImportError:
     print(">>>> Are pre-generated C files available?")
 
 if USE_CYTHON:
-    ext_modules = [Extension('fa2.fa2util', ['fa2/fa2util.py', 'fa2/fa2util.pxd'], cython_directives={'language_level' : 3})]
+    ext_modules = cythonize([Extension('fa2.fa2util', ['fa2/fa2util.py'], cython_directives={'language_level' : 3})])
     cmdclass = {'build_ext': build_ext}
     opts = {"ext_modules": ext_modules, "cmdclass": cmdclass}
 elif path.isfile(path.join(here, 'fa2/fa2util.c')):
