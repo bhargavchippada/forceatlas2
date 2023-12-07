@@ -245,7 +245,7 @@ class ForceAtlas2:
             or (cynetworkx and isinstance(G, cynetworkx.classes.graph.Graph))
         ), "Not a networkx graph"
         assert isinstance(pos, dict) or (pos is None), "pos must be specified as a dictionary, as in networkx"
-        M = networkx.to_scipy_sparse_matrix(G, dtype='f', format='lil', weight=weight_attr)
+        M = networkx.to_scipy_sparse_array(G, dtype='f', format='lil', weight=weight_attr)
         if pos is None:
             l = self.forceatlas2(M, pos=None, iterations=iterations)
         else:
