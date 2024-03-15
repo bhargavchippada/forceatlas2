@@ -48,10 +48,9 @@ setup(
     description='The fastest ForceAtlas2 algorithm for Python (and NetworkX)',
     long_description_content_type='text/markdown',
     long_description=long_description,
-    author='Bhargav Chippada',
-    author_email='bhargavchippada19@gmail.com',
-    url='https://github.com/bhargavchippada/forceatlas2',
-    download_url='https://github.com/bhargavchippada/forceatlas2/archive/v0.3.5.tar.gz',
+    author='Bhargav Chippada, Amin Alam',
+    url='https://github.com/AminAlam/forceatlas2_maintained',
+    download_url='https://github.com/AminAlam/forceatlas2_maintained/archive/refs/tags/V0.0.1.tar.gz',
     keywords=['forceatlas2', 'networkx', 'force-directed-graph', 'force-layout', 'graph'],
     packages=['fa2'],
     classifiers=[
