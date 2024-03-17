@@ -3,7 +3,7 @@ from os import path
 
 from setuptools import setup
 
-print("Installing fa2 package (fastest forceatlas2 python implementation)\n")
+print("Installing fa2_modified package (fastest forceatlas2 python implementation)\n")
 
 here = path.abspath(path.dirname(__file__))
 
@@ -25,17 +25,17 @@ except ImportError:
     print(">>>> Are pre-generated C files available?")
 
 if USE_CYTHON:
-    ext_modules = cythonize([Extension('fa2.fa2util', ['fa2/fa2util.py'], cython_directives={'language_level' : 3})])
+    ext_modules = cythonize([Extension('fa2_modified.fa2util', ['fa2_modified/fa2util.py'], cython_directives={'language_level' : 3})])
     cmdclass = {'build_ext': build_ext}
     opts = {"ext_modules": ext_modules, "cmdclass": cmdclass}
-elif path.isfile(path.join(here, 'fa2/fa2util.c')):
+elif path.isfile(path.join(here, 'fa2_modified/fa2util.c')):
     print("Yes\n")
-    ext_modules = [Extension('fa2.fa2util', ['fa2/fa2util.c'])]
+    ext_modules = [Extension('fa2_modified.fa2util', ['fa2_modified/fa2util.c'])]
     cmdclass = {}
     opts = {"ext_modules": ext_modules, "cmdclass": cmdclass}
 else:
     print("Pre-generated C files are not available. This library will be slow without Cython optimizations.\n")
-    opts = {"py_modules": ["fa2.fa2util"]}
+    opts = {"py_modules": ["fa2_modified.fa2util"]}
 
 # Uncomment the following line if you want to install without optimizations
 # opts = {"py_modules": ["fa2.fa2util"]}
@@ -43,7 +43,7 @@ else:
 print(">>>> Starting to install!\n")
 
 setup(
-    name='fa2',
+    name='fa2_modified',
     version='0.3.5',
     description='The fastest ForceAtlas2 algorithm for Python (and NetworkX)',
     long_description_content_type='text/markdown',
@@ -52,7 +52,7 @@ setup(
     url='https://github.com/AminAlam/forceatlas2_maintained',
     download_url='https://github.com/AminAlam/forceatlas2_maintained/archive/refs/tags/V0.0.1.tar.gz',
     keywords=['forceatlas2', 'networkx', 'force-directed-graph', 'force-layout', 'graph'],
-    packages=['fa2'],
+    packages=['fa2_modified'],
     classifiers=[
         'Development Status :: 5 - Production/Stable',
 
