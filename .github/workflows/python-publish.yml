@@ -33,7 +33,7 @@ jobs:
     - name: Build package
       run: |
         python3 -m pip install --upgrade build
-        python3 -m build
+        python3 -m build --plat-name manylinux2014_x86_64
     - name: Publish package
       uses: pypa/gh-action-pypi-publish@27b31702a0e7fc50959f5ad993c78deac1bdfc29
       with:
