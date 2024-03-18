@@ -15,7 +15,7 @@ ForceAtlas2 is a very fast layout algorithm for force-directed graphs. It's used
 
 Install from pip:
 
-    pip install fa2
+    pip install fa2_modified
 
 To build and install run from source:
 
@@ -41,7 +41,7 @@ To build and install run from source:
 
 ## Usage
 
-from fa2 import ForceAtlas2
+from fa2_modified import ForceAtlas2
 
 Create a ForceAtlas2 object with the appropriate settings. ForceAtlas2 class contains three important methods:
 ```python
@@ -70,7 +70,7 @@ Below is an example usage. You can also see the feature settings of ForceAtlas2 
 
 ```python
 import networkx as nx
-from fa2 import ForceAtlas2
+from fa2_modified import ForceAtlas2
 import matplotlib.pyplot as plt
 
 G = nx.random_geometric_graph(400, 0.2)
