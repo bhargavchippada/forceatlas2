@@ -1,6 +1,7 @@
-## ForceAtlas2 for Python
+## ForceAtlas2 for Python3 (modified/maintained version)
 
-A port of Gephi's Force Atlas 2 layout algorithm to Python 2 and Python 3 (with a wrapper for NetworkX and igraph). This is the fastest python implementation available with most of the features complete. It also supports Barnes Hut approximation for maximum speedup.
+
+A port of Gephi's Force Atlas 2 layout algorithm to Python 3 (Python 3.9) (with a wrapper for NetworkX and igraph). This is the fastest python implementation available with most of the features complete. It also supports Barnes Hut approximation for maximum speedup.
 
 ForceAtlas2 is a very fast layout algorithm for force-directed graphs. It's used to spatialize a **weighted undirected** graph in 2D (Edge weight defines the strength of the connection). The implementation is based on this [paper](http://journals.plos.org/plosone/article?id=10.1371/journal.pone.0098679) and the corresponding [gephi-java-code](https://github.com/gephi/gephi/blob/master/modules/LayoutPlugin/src/main/java/org/gephi/layout/plugin/forceAtlas2/ForceAtlas2.java). Its really quick compared to the fruchterman reingold algorithm (spring layout) of networkx and scales well to high number of nodes (>10000).
 
@@ -15,7 +16,7 @@ ForceAtlas2 is a very fast layout algorithm for force-directed graphs. It's used
 
 Install from pip:
 
-    pip install fa2
+    pip install fa2_modified
 
 To build and install run from source:
 
@@ -41,7 +42,7 @@ To build and install run from source:
 
 ## Usage
 
-from fa2 import ForceAtlas2
+from fa2_modified import ForceAtlas2
 
 Create a ForceAtlas2 object with the appropriate settings. ForceAtlas2 class contains three important methods:
 ```python
@@ -70,7 +71,7 @@ Below is an example usage. You can also see the feature settings of ForceAtlas2 
 
 ```python
 import networkx as nx
-from fa2 import ForceAtlas2
+from fa2_modified import ForceAtlas2
 import matplotlib.pyplot as plt
 
 G = nx.random_geometric_graph(400, 0.2)
