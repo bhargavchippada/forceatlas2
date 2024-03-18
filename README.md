@@ -1,4 +1,5 @@
-## ForceAtlas2 for Python3 (maintained version))
+## ForceAtlas2 for Python3 (modified/maintained version)
+
 
 A port of Gephi's Force Atlas 2 layout algorithm to Python 3 (Python 3.9) (with a wrapper for NetworkX and igraph). This is the fastest python implementation available with most of the features complete. It also supports Barnes Hut approximation for maximum speedup.
 
