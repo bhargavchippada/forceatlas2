@@ -1,0 +1,75 @@
+[project]
+name = "fa2"
+version = "0.9.0"
+description = "The fastest ForceAtlas2 algorithm for Python (and NetworkX)"
+authors = [{name = "Bhargav Chippada", email = "bhargavchippada19@gmail.com"}]
+license = "GPL-3.0-only"
+readme = "README.md"
+requires-python = ">=3.9"
+keywords = ["forceatlas2", "networkx", "force-directed-graph", "force-layout", "graph"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Topic :: Scientific/Engineering :: Visualization",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+dependencies = [
+    "numpy>=1.22",
+    "scipy>=1.7",
+    "tqdm>=4.40",
+]
+
+[project.optional-dependencies]
+networkx = ["networkx>=2.6"]
+igraph = ["igraph>=0.9"]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "pytest-benchmark>=4.0",
+    "ruff>=0.1",
+    "cython>=3.0",
+    "networkx>=2.6",
+    "igraph>=0.9",
+]
+
+[project.urls]
+Homepage = "https://github.com/bhargavchippada/forceatlas2"
+Repository = "https://github.com/bhargavchippada/forceatlas2"
+Issues = "https://github.com/bhargavchippada/forceatlas2/issues"
+
+[build-system]
+requires = ["setuptools>=64", "numpy>=1.22"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["fa2*"]
+
+[tool.setuptools.package-data]
+fa2 = ["*.pyx", "*.c"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --tb=short"
+
+[tool.ruff]
+target-version = "py39"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP"]
+ignore = ["E501"]
+
+[tool.coverage.run]
+source = ["fa2"]
+omit = ["fa2/fa2util.c", "fa2/fa2util.py"]
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 80

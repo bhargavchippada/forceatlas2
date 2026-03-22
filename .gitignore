@@ -101,3 +101,22 @@ ENV/
 .mypy_cache/
 
 .idea
+
+# Poetry
+poetry.lock
+
+# Pytest
+.pytest_cache/
+
+# Ruff
+.ruff_cache/
+
+# Cython generated
+fa2/*.c
+!fa2/fa2util.c
+
+# Benchmarks
+.benchmarks/
+
+# AI assistant
+CLAUDE.md

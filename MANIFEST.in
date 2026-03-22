@@ -1,3 +1,6 @@
 include fa2/fa2util.c
-include fa2/fa2util.pxd
+include fa2/fa2util.pyx
+include LICENSE
 include examples/*
+recursive-include tests *.py
+prune build
