@@ -23,7 +23,7 @@ ForceAtlas2 is a force-directed layout algorithm designed for network visualizat
 <p align="center"><em>Random geometric graph (400 nodes) laid out with ForceAtlas2</em></p>
 
 <p align="center">
-  <img src="examples/forceatlas2_3d_animation.gif" alt="ForceAtlas2 3D layout animation — 1000 nodes with 8 communities separating over 600 iterations">
+  <img src="https://raw.githubusercontent.com/bhargavchippada/forceatlas2/master/examples/forceatlas2_3d_animation.gif" alt="ForceAtlas2 3D layout animation — 1000 nodes with 8 communities separating over 600 iterations">
 </p>
 <p align="center"><em>1000-node stochastic block model (8 communities) laid out in 3D with ForceAtlas2 LinLog mode</em></p>
 
