@@ -59,8 +59,13 @@ nav:
   - Advanced Usage: advanced.md
   - API Reference:
       - ForceAtlas2: api/forceatlas2.md
+      - Simple API: api/easy.md
+      - Visualization: api/viz.md
+      - Metrics: api/metrics.md
       - Force Functions: api/fa2util.md
       - Vectorized Backend: api/vectorized.md
+      - CLI: api/cli.md
+      - MCP Server: api/mcp.md
 
 markdown_extensions:
   - admonition
