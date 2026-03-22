@@ -185,10 +185,16 @@ def plot_layout(
                 [pos_array[si, 1], pos_array[ti, 1]],
                 color="gray", alpha=edge_alpha, linewidth=0.5, zorder=1)
 
-    # Draw nodes
-    ax.scatter(pos_array[:, 0], pos_array[:, 1],
-               c=node_color, s=node_size, alpha=node_alpha,
-               cmap=cmap, zorder=2, edgecolors="white", linewidths=0.3)
+    # Draw nodes — only pass cmap when color is numeric (avoids matplotlib warning)
+    scatter_kw = dict(s=node_size, alpha=node_alpha, zorder=2, edgecolors="white", linewidths=0.3)
+    _is_numeric = isinstance(node_color, np.ndarray) or (
+        isinstance(node_color, list) and node_color and isinstance(node_color[0], (int, float))
+    )
+    if _is_numeric:
+        scatter_kw.update(c=node_color, cmap=cmap)
+    else:
+        scatter_kw["color"] = node_color
+    ax.scatter(pos_array[:, 0], pos_array[:, 1], **scatter_kw)
 
     if show_labels:
         for i, label in enumerate(node_list):
@@ -224,9 +230,15 @@ def _plot_3d(pos_array, node_list, edges, node_index, node_color, node_size,
                 [pos_array[si, 2], pos_array[ti, 2]],
                 color="gray", alpha=edge_alpha, linewidth=0.5)
 
-    ax.scatter(pos_array[:, 0], pos_array[:, 1], pos_array[:, 2],
-               c=node_color, s=node_size, alpha=node_alpha, cmap=cmap,
-               edgecolors="white", linewidths=0.3)
+    scatter_kw = dict(s=node_size, alpha=node_alpha, edgecolors="white", linewidths=0.3)
+    _is_numeric = isinstance(node_color, np.ndarray) or (
+        isinstance(node_color, list) and node_color and isinstance(node_color[0], (int, float))
+    )
+    if _is_numeric:
+        scatter_kw.update(c=node_color, cmap=cmap)
+    else:
+        scatter_kw["color"] = node_color
+    ax.scatter(pos_array[:, 0], pos_array[:, 1], pos_array[:, 2], **scatter_kw)
 
     if title:
         ax.set_title(title)

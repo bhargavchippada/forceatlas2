@@ -297,3 +297,36 @@ class TestMetricsIntegration:
         s_200 = stress(G, pos_200)
 
         assert s_200 < s_10, f"Expected 200-iter stress ({s_200}) < 10-iter stress ({s_10})"
+
+
+class TestMetricsImportFallbacks:
+    """Test _resolve_graph helper when networkx/igraph not available."""
+
+    def test_raw_matrix_stress(self):
+        """Stress with raw numpy matrix (no networkx/igraph needed)."""
+        import numpy as np
+
+        from fa2.metrics import stress
+        G = np.array([[0, 1, 1], [1, 0, 1], [1, 1, 0]], dtype=float)
+        pos = {0: (0.0, 0.0), 1: (1.0, 0.0), 2: (0.5, 1.0)}
+        s = stress(G, pos)
+        assert s >= 0
+
+    def test_raw_matrix_neighborhood(self):
+        """Neighborhood preservation with raw matrix."""
+        import numpy as np
+
+        from fa2.metrics import neighborhood_preservation
+        G = np.array([[0, 1, 1], [1, 0, 1], [1, 1, 0]], dtype=float)
+        pos = {0: (0.0, 0.0), 1: (1.0, 0.0), 2: (0.5, 1.0)}
+        np_score = neighborhood_preservation(G, pos, k=1)
+        assert 0 <= np_score <= 1
+
+    def test_igraph_stress(self):
+        """Stress with igraph graph."""
+        igraph = pytest.importorskip("igraph")
+        from fa2.metrics import stress
+        G = igraph.Graph(n=3, edges=[(0, 1), (1, 2), (0, 2)], directed=False)
+        pos = {0: (0.0, 0.0), 1: (1.0, 0.0), 2: (0.5, 1.0)}
+        s = stress(G, pos)
+        assert s >= 0

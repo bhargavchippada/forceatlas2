@@ -1,5 +1,6 @@
 """Tests for fa2 CLI (python -m fa2)."""
 
+import argparse
 import json
 import os
 import subprocess
@@ -223,3 +224,280 @@ class TestCLIErrors:
             assert rc == 0
         finally:
             os.unlink(out_path)
+
+
+class TestCLIInProcess:
+    """In-process tests for coverage (subprocess tests don't count)."""
+
+    def test_read_edges_json_list(self):
+        from fa2.__main__ import _read_edges
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump([["A", "B"], ["B", "C"]], f)
+            path = f.name
+        try:
+            edges = _read_edges(path)
+            assert len(edges) == 2
+        finally:
+            os.unlink(path)
+
+    def test_read_edges_json_dict_with_edges(self):
+        from fa2.__main__ import _read_edges
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump({"edges": [["A", "B"]], "nodes": ["A", "B"]}, f)
+            path = f.name
+        try:
+            edges = _read_edges(path)
+            assert edges == [["A", "B"]]
+        finally:
+            os.unlink(path)
+
+    def test_read_edges_json_dict_nodes_only(self):
+        from fa2.__main__ import _read_edges
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump({"nodes": ["A", "B"]}, f)
+            path = f.name
+        try:
+            edges = _read_edges(path)
+            assert edges == []
+        finally:
+            os.unlink(path)
+
+    def test_read_edges_json_adjacency_dict(self):
+        from fa2.__main__ import _read_edges
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump({"A": ["B"], "B": ["A"]}, f)
+            path = f.name
+        try:
+            result = _read_edges(path)
+            assert isinstance(result, dict)
+        finally:
+            os.unlink(path)
+
+    def test_read_edges_csv(self):
+        from fa2.__main__ import _read_edges
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
+            f.write("source,target,weight\nA,B,1.0\nB,C,2.0\n")
+            path = f.name
+        try:
+            edges = _read_edges(path)
+            assert len(edges) == 2
+            assert len(edges[0]) == 3  # has weight
+        finally:
+            os.unlink(path)
+
+    def test_read_edges_csv_no_weight(self):
+        from fa2.__main__ import _read_edges
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
+            f.write("from,to\nA,B\nB,C\n")
+            path = f.name
+        try:
+            edges = _read_edges(path)
+            assert len(edges) == 2
+            assert len(edges[0]) == 2
+        finally:
+            os.unlink(path)
+
+    def test_read_edges_csv_with_comments(self):
+        from fa2.__main__ import _read_edges
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
+            f.write("# comment\nsrc,tgt\n0,1\n1,2\n")
+            path = f.name
+        try:
+            edges = _read_edges(path)
+            assert len(edges) == 2
+        finally:
+            os.unlink(path)
+
+    def test_read_edges_empty(self):
+        from fa2.__main__ import _read_edges
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            f.write("  ")
+            path = f.name
+        try:
+            edges = _read_edges(path)
+            assert edges == []
+        finally:
+            os.unlink(path)
+
+    def test_read_edges_stdin(self, monkeypatch):
+        """Test _read_edges with stdin (source='-')."""
+        import io
+
+        from fa2.__main__ import _read_edges
+        monkeypatch.setattr("sys.stdin", io.StringIO('[["X","Y"]]'))
+        edges = _read_edges("-")
+        assert edges == [["X", "Y"]]
+
+    def test_auto_type(self):
+        from fa2.__main__ import _auto_type
+        assert _auto_type("42") == 42
+        assert _auto_type("hello") == "hello"
+
+    def test_cmd_layout(self):
+        from fa2.__main__ import cmd_layout
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump([["A", "B"], ["B", "C"]], f)
+            in_path = f.name
+        with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as f:
+            out_path = f.name
+        try:
+            args = argparse.Namespace(
+                input=in_path, output=out_path, iterations=5,
+                dim=2, mode="default", seed=42,
+            )
+            cmd_layout(args)
+            with open(out_path) as f:
+                positions = json.load(f)
+            assert len(positions) == 3
+        finally:
+            os.unlink(in_path)
+            os.unlink(out_path)
+
+    def test_cmd_layout_stdout(self, capsys):
+        from fa2.__main__ import cmd_layout
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump([["A", "B"]], f)
+            in_path = f.name
+        try:
+            args = argparse.Namespace(
+                input=in_path, output=None, iterations=5,
+                dim=2, mode="default", seed=42,
+            )
+            cmd_layout(args)
+            captured = capsys.readouterr()
+            positions = json.loads(captured.out)
+            assert len(positions) == 2
+        finally:
+            os.unlink(in_path)
+
+    def test_cmd_render(self):
+        pytest.importorskip("matplotlib")
+        from fa2.__main__ import cmd_render
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump([["A", "B"], ["B", "C"]], f)
+            in_path = f.name
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
+            out_path = f.name
+        try:
+            args = argparse.Namespace(
+                input=in_path, output=out_path, iterations=5,
+                dim=2, mode="default", seed=42, title="Test",
+            )
+            cmd_render(args)
+            assert os.path.getsize(out_path) > 100
+        finally:
+            os.unlink(in_path)
+            os.unlink(out_path)
+
+    def test_cmd_render_svg(self):
+        pytest.importorskip("matplotlib")
+        from fa2.__main__ import cmd_render
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump([["A", "B"]], f)
+            in_path = f.name
+        with tempfile.NamedTemporaryFile(suffix=".svg", delete=False) as f:
+            out_path = f.name
+        try:
+            args = argparse.Namespace(
+                input=in_path, output=out_path, iterations=5,
+                dim=2, mode="default", seed=42, title=None,
+            )
+            cmd_render(args)
+            with open(out_path, "rb") as f:
+                assert b"<svg" in f.read()
+        finally:
+            os.unlink(in_path)
+            os.unlink(out_path)
+
+    def test_cmd_render_stdout(self):
+        pytest.importorskip("matplotlib")
+        from fa2.__main__ import cmd_render
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump([["A", "B"]], f)
+            in_path = f.name
+        try:
+            args = argparse.Namespace(
+                input=in_path, output=None, iterations=5,
+                dim=2, mode="default", seed=42, title=None,
+            )
+            cmd_render(args)
+            # No assertion on stdout — just verifies no crash
+        finally:
+            os.unlink(in_path)
+
+    def test_cmd_metrics(self, capsys):
+        from fa2.__main__ import cmd_metrics
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump([["A", "B"], ["B", "C"]], f)
+            in_path = f.name
+        try:
+            args = argparse.Namespace(
+                input=in_path, output=None, iterations=5,
+                dim=2, mode="default", seed=42, positions=None,
+            )
+            cmd_metrics(args)
+            captured = capsys.readouterr()
+            metrics = json.loads(captured.out)
+            assert "stress" in metrics
+        finally:
+            os.unlink(in_path)
+
+    def test_cmd_metrics_with_positions(self, capsys):
+        from fa2.__main__ import cmd_metrics
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump([["A", "B"], ["B", "C"]], f)
+            in_path = f.name
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump({"A": [0.0, 0.0], "B": [1.0, 0.0], "C": [0.5, 1.0]}, f)
+            pos_path = f.name
+        try:
+            args = argparse.Namespace(
+                input=in_path, output=None, iterations=5,
+                dim=2, mode="default", seed=42, positions=pos_path,
+            )
+            cmd_metrics(args)
+            captured = capsys.readouterr()
+            metrics = json.loads(captured.out)
+            assert "stress" in metrics
+        finally:
+            os.unlink(in_path)
+            os.unlink(pos_path)
+
+    def test_main_layout(self):
+        from fa2.__main__ import main
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump([["A", "B"]], f)
+            in_path = f.name
+        with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as f:
+            out_path = f.name
+        try:
+            sys.argv = ["fa2", "layout", in_path, "-o", out_path, "-i", "5", "-s", "42"]
+            main()
+        finally:
+            os.unlink(in_path)
+            os.unlink(out_path)
+
+    def test_main_error_handling(self):
+        from fa2.__main__ import main
+        sys.argv = ["fa2", "layout", "/nonexistent/path.json"]
+        with pytest.raises(SystemExit) as exc_info:
+            main()
+        assert exc_info.value.code == 1
+
+    def test_read_edges_from_stdin(self, monkeypatch):
+        """Cover line 19: reading from stdin."""
+        import io
+
+        from fa2.__main__ import _read_edges
+        monkeypatch.setattr("sys.stdin", io.StringIO('[["X","Y"]]'))
+        edges = _read_edges("-")
+        assert len(edges) == 1
+
+    def test_read_edges_from_stdin_none(self, monkeypatch):
+        """Cover source=None path."""
+        import io
+
+        from fa2.__main__ import _read_edges
+        monkeypatch.setattr("sys.stdin", io.StringIO('[["A","B"]]'))
+        edges = _read_edges(None)
+        assert len(edges) == 1

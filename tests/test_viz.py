@@ -369,3 +369,94 @@ class TestVizIntegration:
         pos = {0: (0, 0, 0), 1: (1, 0, 0), 2: (2, 0, 0)}
         data = export_layout(G, pos, fmt="gexf")
         assert isinstance(data, bytes)
+
+
+class TestVizImportErrors:
+    """Test ImportError handling for matplotlib."""
+
+    def test_plot_layout_import_error(self, monkeypatch):
+        import sys
+        monkeypatch.setitem(sys.modules, "matplotlib", None)
+        monkeypatch.setitem(sys.modules, "matplotlib.pyplot", None)
+        # Need to reimport to trigger the error
+        import numpy as np
+
+        from fa2.viz import plot_layout
+        G = np.array([[0, 1], [1, 0]], dtype=float)
+        pos = {0: (0.0, 0.0), 1: (1.0, 0.0)}
+        with pytest.raises(ImportError, match="matplotlib"):
+            plot_layout(G, pos)
+
+    def test_export_gexf_import_error(self, monkeypatch):
+        import sys
+        monkeypatch.setitem(sys.modules, "networkx", None)
+        import numpy as np
+
+        from fa2.viz import export_layout
+        G = np.array([[0, 1], [1, 0]], dtype=float)
+        pos = {0: (0.0, 0.0), 1: (1.0, 0.0)}
+        with pytest.raises(ImportError, match="networkx"):
+            export_layout(G, pos, fmt="gexf")
+
+
+class TestVizEdgeCases:
+    """Cover remaining uncovered lines in viz.py."""
+
+    def test_plot_3d_with_existing_ax(self):
+        """Test 3D plot with pre-existing 3D axes (line 218)."""
+        plt = pytest.importorskip("matplotlib.pyplot")
+        import matplotlib
+        matplotlib.use("Agg")
+        import numpy as np
+
+        from fa2.viz import plot_layout
+        G = np.array([[0, 1], [1, 0]], dtype=float)
+        pos = {0: (0.0, 0.0, 0.0), 1: (1.0, 1.0, 1.0)}
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection="3d")
+        result = plot_layout(G, pos, ax=ax)
+        assert result is not None
+        plt.close(fig)
+
+    def test_plot_3d_wrong_ax_raises(self):
+        """Test 3D plot with 2D axes raises ValueError (line 217-218)."""
+        plt = pytest.importorskip("matplotlib.pyplot")
+        import matplotlib
+        matplotlib.use("Agg")
+        import numpy as np
+
+        from fa2.viz import plot_layout
+        G = np.array([[0, 1], [1, 0]], dtype=float)
+        pos = {0: (0.0, 0.0, 0.0), 1: (1.0, 1.0, 1.0)}
+        fig, ax = plt.subplots()
+        with pytest.raises(ValueError, match="3D"):
+            plot_layout(G, pos, ax=ax)
+        plt.close(fig)
+
+    def test_plot_3d_color_by_degree(self):
+        """3D plot with numeric colors (covers cmap branch in _plot_3d)."""
+        plt = pytest.importorskip("matplotlib.pyplot")
+        import matplotlib
+        matplotlib.use("Agg")
+        import numpy as np
+
+        from fa2.viz import plot_layout
+        G = np.array([[0, 1, 1], [1, 0, 1], [1, 1, 0]], dtype=float)
+        pos = np.array([[0, 0, 0], [1, 0, 0], [0.5, 0.866, 0.5]])
+        fig = plot_layout(G, pos, color_by_degree=True)
+        assert fig is not None
+        plt.close(fig)
+
+    def test_plot_3d_with_title(self):
+        """Test 3D plot with title (line 232)."""
+        plt = pytest.importorskip("matplotlib.pyplot")
+        import matplotlib
+        matplotlib.use("Agg")
+        import numpy as np
+
+        from fa2.viz import plot_layout
+        G = np.array([[0, 1], [1, 0]], dtype=float)
+        pos = {0: (0.0, 0.0, 0.0), 1: (1.0, 1.0, 1.0)}
+        fig = plot_layout(G, pos, title="3D Test")
+        assert fig is not None
+        plt.close(fig)

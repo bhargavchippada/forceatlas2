@@ -37,6 +37,7 @@ dev = [
     "cython>=3.0",
     "networkx>=2.6",
     "igraph>=0.9",
+    "matplotlib>=3.5",
 ]
 viz = ["matplotlib>=3.5"]
 mcp = ["mcp>=1.0"]

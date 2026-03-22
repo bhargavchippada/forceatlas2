@@ -65,7 +65,7 @@ Compute quality metrics for a graph layout.
 | `edges` | list | Edge list |
 | `positions` | dict | `{"node_id": [x, y], ...}` |
 
-**Returns**: `{"stress": float, "edge_crossings": int, "neighborhood_preservation": float}`
+**Returns**: `{"stress": float, "edge_crossings": int (2D only), "neighborhood_preservation": float}`
 
 !!! note
     `edge_crossings` is only included for 2D layouts.

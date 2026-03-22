@@ -27,10 +27,7 @@ except ImportError:
         "Install it with: pip install 'fa2[mcp]'"
     ) from None
 
-mcp = FastMCP(
-    "fa2",
-    description="ForceAtlas2 graph layout — compute 2D/3D positions for network visualization",
-)
+mcp = FastMCP("fa2")
 
 
 @mcp.tool()

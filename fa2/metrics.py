@@ -15,7 +15,7 @@ def _to_position_array(positions, node_list=None):
     """Convert positions (dict, list, or ndarray) to an (N, dim) array."""
     if isinstance(positions, dict):
         if node_list is None:
-            node_list = sorted(positions.keys())
+            node_list = sorted(positions.keys(), key=str)
         return np.array([positions[n] for n in node_list], dtype=np.float64), node_list
     if isinstance(positions, list):
         return np.array(positions, dtype=np.float64), None

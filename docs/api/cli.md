@@ -69,6 +69,12 @@ B,C,2.0
 ## Piping
 
 ```bash
-# Generate → layout → render pipeline
-echo '[["A","B"],["B","C"],["A","C"]]' | python -m fa2 layout | python -m fa2 metrics -
+# Stdin → layout
+echo '[["A","B"],["B","C"],["A","C"]]' | python -m fa2 layout - > layout.json
+
+# Stdin → render
+echo '[["A","B"],["B","C"],["A","C"]]' | python -m fa2 render - -o graph.png
+
+# Stdin → metrics (computes layout internally)
+echo '[["A","B"],["B","C"],["A","C"]]' | python -m fa2 metrics -
 ```
