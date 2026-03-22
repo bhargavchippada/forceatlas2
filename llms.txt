@@ -1,28 +1,47 @@
 # fa2 — ForceAtlas2 for Python
 
-> The fastest Python implementation of the ForceAtlas2 graph layout algorithm. Cython-optimized (10-100x speedup). Supports NetworkX, igraph, numpy, scipy sparse. 2D/3D/N-dimensional layouts.
+> The fastest Python implementation of the ForceAtlas2 graph layout algorithm. Cython-optimized (10-100x speedup). Supports NetworkX, igraph, numpy, scipy sparse. 2D/3D/N-dimensional layouts. Built-in visualization, quality metrics, CLI, and MCP server for AI agents.
 
 ## Install
 
-pip install fa2
+```
+pip install fa2                  # core (Cython compiled if possible)
+pip install fa2[viz]             # + matplotlib visualization
+pip install fa2[mcp]             # + MCP server for AI agents
+pip install fa2[viz,mcp]         # both
+pip install fa2[networkx]        # + NetworkX support
+pip install fa2[igraph]          # + igraph support
+```
 
 ## Simple API (no numpy required)
 
 ```python
 from fa2.easy import layout, visualize
 
+# Edge list → positions dict
 positions = layout([("A", "B"), ("B", "C"), ("A", "C")], mode="community", seed=42)
 # Returns: {"A": (x, y), "B": (x, y), "C": (x, y)}
 
+# Weighted edges
+positions = layout([("A", "B", 5.0), ("B", "C", 1.0)], seed=42)
+
+# Dict edges (JSON-friendly)
+positions = layout([{"source": "A", "target": "B", "weight": 5.0}], seed=42)
+
+# Adjacency dict
+positions = layout({"A": ["B", "C"], "B": ["A"]}, seed=42)
+
+# 3D layout
+positions = layout([("A", "B"), ("B", "C")], dim=3, seed=42)
+# Returns: {"A": (x, y, z), ...}
+
+# One-call visualization
 visualize([("A", "B"), ("B", "C")], output="png", path="graph.png")
+visualize(edges, output="json", path="graph.json")  # D3.js/Sigma.js compatible
+visualize(edges, output="matplotlib")                # returns matplotlib Figure
 ```
 
-### Input formats
-- Edge tuples: [(0, 1), (1, 2, 5.0)]
-- Edge dicts: [{"source": "A", "target": "B", "weight": 5.0}]
-- Adjacency dict: {"A": ["B", "C"], "B": ["A"]}
-
-### Mode presets
+### Mode presets for layout() and visualize()
 - "default" — standard ForceAtlas2
 - "community" — LinLog + dissuade hubs, tight community clusters
 - "hub-dissuade" — push high-degree nodes to periphery
@@ -34,38 +53,57 @@ visualize([("A", "B"), ("B", "C")], output="png", path="graph.png")
 from fa2 import ForceAtlas2
 
 fa2 = ForceAtlas2(
-    linLogMode=False,           # True for community detection
-    scalingRatio=2.0,           # repulsion strength
-    gravity=1.0,                # center attraction
-    barnesHutOptimize=True,     # O(n log n) approximation
-    dim=2,                      # 2, 3, or higher
-    adjustSizes=False,          # True to prevent node overlap
-    seed=None,                  # reproducibility
-    verbose=True,               # progress bar
+    # Behavior
+    linLogMode=False,                       # True for community detection
+    outboundAttractionDistribution=False,   # True to push hubs to borders
+    adjustSizes=False,                      # True to prevent node overlap
+    edgeWeightInfluence=1.0,                # 0=ignore weights, 1=normal
+    normalizeEdgeWeights=False,             # min-max normalize to [0,1]
+    invertedEdgeWeightsMode=False,          # w = 1/w
+    # Performance
+    barnesHutOptimize=True,                 # O(n log n) approximation
+    barnesHutTheta=1.2,                     # accuracy vs speed
+    jitterTolerance=1.0,                    # convergence speed
+    backend="auto",                         # "auto", "cython", "vectorized", "loop"
+    # Tuning
+    scalingRatio=2.0,                       # repulsion strength (higher = spread)
+    gravity=1.0,                            # center attraction
+    strongGravityMode=False,                # distance-independent gravity
+    # Layout
+    dim=2,                                  # 2, 3, or higher
+    seed=None,                              # reproducibility
+    verbose=True,                           # progress bar
 )
 
-# NetworkX
-positions = fa2.forceatlas2_networkx_layout(G, iterations=100, weight_attr="weight")
+# NetworkX graph
+positions = fa2.forceatlas2_networkx_layout(G, iterations=100, weight_attr="weight",
+    size_attr="size", store_pos_as="fa2_pos")
 
-# igraph
-layout = fa2.forceatlas2_igraph_layout(G, iterations=100)
+# igraph graph
+layout = fa2.forceatlas2_igraph_layout(G, iterations=100, weight_attr="weight",
+    size_attr="size", store_pos_as="fa2_pos")
 
-# Raw adjacency matrix (numpy or scipy sparse)
-positions = fa2.forceatlas2(adj_matrix, iterations=100)
+# Raw adjacency matrix (numpy ndarray or scipy sparse)
+positions = fa2.forceatlas2(adj_matrix, iterations=100, sizes=sizes_array)
 
-# Auto-tune parameters
-fa2 = ForceAtlas2.inferSettings(G, verbose=False)
+# Auto-tune parameters based on graph characteristics
+fa2 = ForceAtlas2.inferSettings(G, verbose=False, linLogMode=True)
 ```
 
-## Visualization
+## Visualization (requires fa2[viz])
 
 ```python
 from fa2.viz import plot_layout, export_layout
 
-fig = plot_layout(G, positions, color_by_degree=True)
-export_layout(G, positions, fmt="json", path="graph.json")  # D3.js/Sigma.js
+# Matplotlib figure (2D or 3D)
+fig = plot_layout(G, positions, color_by_degree=True, title="My Graph")
+
+# Export formats
+export_layout(G, positions, fmt="json", path="graph.json")   # D3.js/Sigma.js
 export_layout(G, positions, fmt="png", path="graph.png")
-export_layout(G, positions, fmt="gexf", path="graph.gexf")  # Gephi
+export_layout(G, positions, fmt="svg", path="graph.svg")
+export_layout(G, positions, fmt="gexf", path="graph.gexf")   # Gephi
+export_layout(G, positions, fmt="graphml", path="graph.graphml")
 ```
 
 ## Quality Metrics
@@ -73,8 +111,8 @@ export_layout(G, positions, fmt="gexf", path="graph.gexf")  # Gephi
 ```python
 from fa2.metrics import stress, edge_crossing_count, neighborhood_preservation
 
-stress(G, positions)                  # lower = better distance preservation
-edge_crossing_count(G, positions)     # 2D only, fewer = cleaner
+stress(G, positions)                           # lower = better (hop-count distance)
+edge_crossing_count(G, positions)              # 2D only, lower = cleaner
 neighborhood_preservation(G, positions, k=10)  # 0-1, higher = better
 ```
 
@@ -82,9 +120,14 @@ neighborhood_preservation(G, positions, k=10)  # 0-1, higher = better
 
 ```bash
 python -m fa2 layout edges.json --mode community -o layout.json
-python -m fa2 render edges.csv -o graph.png
+python -m fa2 layout edges.csv --dim 3 --seed 42 -o layout.json
+python -m fa2 render edges.json -o graph.png --title "My Graph"
+python -m fa2 render edges.csv -o graph.svg
 python -m fa2 metrics edges.json
+echo '[["A","B"],["B","C"]]' | python -m fa2 layout -  # stdin support
 ```
+
+Input formats: JSON edge list, JSON adjacency dict, CSV (source,target,weight).
 
 ## MCP Server (AI agents)
 
@@ -92,7 +135,23 @@ python -m fa2 metrics edges.json
 {"mcpServers": {"fa2": {"command": "python", "args": ["-m", "fa2.mcp_server"]}}}
 ```
 
-Tools: layout_graph, layout_and_render, evaluate_layout
+### Tools
+
+**layout_graph** — Compute 2D/3D positions
+- edges: [["A","B"], ["B","C",5.0]]
+- iterations: int (default 100)
+- dim: int (default 2)
+- mode: "default" | "community" | "hub-dissuade" | "compact"
+- seed: int | null
+- Returns: {"node_id": [x, y], ...}
+
+**layout_and_render** — Layout + render as base64 PNG
+- edges, iterations, mode, seed, title
+- Returns: base64 PNG string
+
+**evaluate_layout** — Quality metrics
+- edges, positions
+- Returns: {stress: float, edge_crossings: int (2D only), neighborhood_preservation: float}
 
 ## Links
 
