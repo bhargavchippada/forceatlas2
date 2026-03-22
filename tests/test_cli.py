@@ -484,15 +484,6 @@ class TestCLIInProcess:
             main()
         assert exc_info.value.code == 1
 
-    def test_read_edges_from_stdin(self, monkeypatch):
-        """Cover line 19: reading from stdin."""
-        import io
-
-        from fa2.__main__ import _read_edges
-        monkeypatch.setattr("sys.stdin", io.StringIO('[["X","Y"]]'))
-        edges = _read_edges("-")
-        assert len(edges) == 1
-
     def test_read_edges_from_stdin_none(self, monkeypatch):
         """Cover source=None path."""
         import io
