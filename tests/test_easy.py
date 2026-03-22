@@ -87,8 +87,9 @@ class TestLayout:
         assert len(pos) == 2
 
     def test_self_loops_skipped(self):
+        # Nodes are collected from self-loop edges, but self-loop edges are skipped
         pos = layout([(0, 0), (0, 1), (1, 1)], seed=42)
-        assert len(pos) == 2  # self-loops don't create new nodes but edges are skipped
+        assert len(pos) == 2
 
     def test_duplicate_edges_deduplicated(self):
         pos = layout([(0, 1), (1, 0), (0, 1)], seed=42)
@@ -97,6 +98,11 @@ class TestLayout:
     def test_invalid_edge_length(self):
         with pytest.raises(ValueError, match="2-tuple or 3-tuple"):
             layout([(0, 1, 2, 3)])
+
+    def test_mixed_int_string_node_ids(self):
+        """Mixed types should not crash sorted()."""
+        pos = layout([(0, "A"), ("A", 1), (1, 0)], seed=42)
+        assert len(pos) == 3
 
     def test_large_graph(self):
         """50 nodes, fast smoke test."""

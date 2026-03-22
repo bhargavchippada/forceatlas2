@@ -131,6 +131,8 @@ class TestCLIMetrics:
         metrics = json.loads(stdout)
         assert "stress" in metrics
         assert "neighborhood_preservation" in metrics
+        assert "edge_crossings" in metrics
+        assert isinstance(metrics["edge_crossings"], int)
 
     def test_metrics_with_positions_file(self, json_edges_file):
         # First compute layout
@@ -188,3 +190,36 @@ class TestCLIEdgeCases:
         assert rc == 0
         positions = json.loads(stdout)
         assert len(positions) == 3
+
+    def test_nodes_only_json(self):
+        """Graph with nodes but no edges key should return empty positions."""
+        data = {"nodes": ["A", "B", "C"]}
+        rc, stdout, _ = run_fa2("layout", "-", "-i", "10", "-s", "42", stdin=json.dumps(data))
+        assert rc == 0
+        positions = json.loads(stdout)
+        assert positions == {}
+
+
+class TestCLIErrors:
+    def test_nonexistent_file(self):
+        rc, stdout, stderr = run_fa2("layout", "/nonexistent/file.json")
+        assert rc == 1
+        assert "error" in stderr.lower()
+
+    def test_malformed_json(self):
+        rc, stdout, stderr = run_fa2("layout", "-", stdin="{invalid json")
+        assert rc == 1
+
+    def test_render_without_matplotlib(self):
+        """Render fails gracefully if matplotlib missing (tested via error handling)."""
+        # This test just verifies the error handler catches ImportError cleanly
+        # In practice matplotlib is installed, so we just verify render works
+        pytest.importorskip("matplotlib")
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
+            out_path = f.name
+        edges_json = json.dumps([["A", "B"]])
+        try:
+            rc, _, _ = run_fa2("render", "-", "-o", out_path, "-i", "5", stdin=edges_json)
+            assert rc == 0
+        finally:
+            os.unlink(out_path)

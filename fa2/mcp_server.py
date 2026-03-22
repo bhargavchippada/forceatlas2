@@ -17,6 +17,7 @@ Configure in Claude/MCP settings::
 """
 
 import base64
+from typing import Optional
 
 try:
     from mcp.server.fastmcp import FastMCP
@@ -38,7 +39,7 @@ def layout_graph(
     iterations: int = 100,
     dim: int = 2,
     mode: str = "default",
-    seed: int | None = None,
+    seed: Optional[int] = None,
 ) -> dict:
     """Compute 2D/3D positions for a graph using ForceAtlas2 force-directed layout.
 
@@ -51,7 +52,7 @@ def layout_graph(
         iterations: Number of layout iterations (default 100, more = higher quality).
         dim: Dimensions: 2 for 2D, 3 for 3D (default 2).
         mode: Layout style — "default", "community" (tight clusters),
-              "hub-dissuade" (hubs to edges), "compact".
+              "hub-dissuade" (pushes hub nodes to the periphery), "compact".
         seed: Random seed for reproducibility.
 
     Returns:
@@ -59,7 +60,6 @@ def layout_graph(
     """
     from fa2.easy import layout
 
-    # Convert [[src, tgt, ...], ...] to tuples
     edge_tuples = [tuple(e) for e in edges]
 
     positions = layout(
@@ -70,7 +70,6 @@ def layout_graph(
         seed=seed,
     )
 
-    # Convert tuples to lists for JSON serialization
     return {str(k): list(v) for k, v in positions.items()}
 
 
@@ -79,8 +78,8 @@ def layout_and_render(
     edges: list,
     iterations: int = 100,
     mode: str = "default",
-    seed: int | None = None,
-    title: str | None = None,
+    seed: Optional[int] = None,
+    title: Optional[str] = None,
 ) -> str:
     """Layout a graph AND render it as a PNG image.
 
@@ -129,7 +128,8 @@ def evaluate_layout(
         positions: Dict mapping node IDs to [x, y] coordinate arrays.
 
     Returns:
-        Dict with stress, edge_crossings, and neighborhood_preservation scores.
+        Dict with stress, neighborhood_preservation (always present), and
+        edge_crossings (2D layouts only, omitted for 3D).
         Lower stress is better. Higher neighborhood_preservation (0-1) is better.
     """
     from fa2.easy import _parse_edges
@@ -141,14 +141,17 @@ def evaluate_layout(
     # Convert positions to proper format
     pos_dict = {}
     for k, v in positions.items():
-        key = int(k) if k.isdigit() else k
+        key = int(k) if isinstance(k, str) and k.isdigit() else k
         pos_dict[key] = tuple(v)
+
+    if not pos_dict:
+        return {"stress": 0.0, "neighborhood_preservation": 1.0}
 
     n = len(node_list)
     result = {}
     result["stress"] = round(stress(G, pos_dict), 4)
 
-    # Only compute crossings for 2D
+    # Infer dimensionality from positions, not from args
     sample_pos = next(iter(pos_dict.values()))
     if len(sample_pos) == 2:
         result["edge_crossings"] = edge_crossing_count(G, pos_dict)

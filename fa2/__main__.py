@@ -29,9 +29,10 @@ def _read_edges(source):
     if text.startswith("[") or text.startswith("{"):
         data = json.loads(text)
         if isinstance(data, dict):
-            # Could be {"nodes": [...], "edges": [...]} or adjacency dict
             if "edges" in data:
                 return data["edges"]
+            if "nodes" in data and "edges" not in data:
+                return []  # graph with nodes only, no edges
             return data  # adjacency dict
         return data  # list of edges
 
@@ -42,7 +43,6 @@ def _read_edges(source):
     for row in reader:
         if not row or row[0].startswith("#"):
             continue
-        # Skip header row
         if row[0].lower() in ("source", "src", "from", "node1"):
             continue
         if len(row) == 2:
@@ -73,7 +73,6 @@ def cmd_layout(args):
         seed=args.seed,
     )
 
-    # Convert to serializable format
     result = {str(k): list(v) for k, v in positions.items()}
 
     if args.output:
@@ -82,7 +81,7 @@ def cmd_layout(args):
         print(f"Layout written to {args.output}", file=sys.stderr)
     else:
         json.dump(result, sys.stdout, indent=2)
-        print()  # trailing newline
+        print()
 
 
 def cmd_render(args):
@@ -119,11 +118,9 @@ def cmd_metrics(args):
 
     edges = _read_edges(args.input)
 
-    # If positions file provided, use those; otherwise compute layout
     if args.positions:
         with open(args.positions) as f:
             positions = json.load(f)
-        # Convert string keys back to original types
         positions = {_auto_type(k): tuple(v) for k, v in positions.items()}
     else:
         positions = layout(edges, iterations=args.iterations, mode=args.mode, seed=args.seed)
@@ -131,11 +128,18 @@ def cmd_metrics(args):
     from fa2.easy import _parse_edges
     node_list, G = _parse_edges(edges)
 
+    n = len(node_list)
     result = {}
     result["stress"] = stress(G, positions)
-    if args.dim == 2:
-        result["edge_crossings"] = edge_crossing_count(G, positions)
-    result["neighborhood_preservation"] = neighborhood_preservation(G, positions, k=min(10, len(node_list) - 1))
+
+    # Infer dimensionality from positions, not from args
+    if positions:
+        sample = next(iter(positions.values()))
+        if len(sample) == 2:
+            result["edge_crossings"] = edge_crossing_count(G, positions)
+
+    k = min(10, n - 1) if n > 1 else 1
+    result["neighborhood_preservation"] = neighborhood_preservation(G, positions, k=k)
 
     json.dump(result, sys.stdout, indent=2)
     print()
@@ -148,7 +152,6 @@ def main():
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    # Shared arguments
     def add_common_args(sub):
         sub.add_argument("input", nargs="?", default="-",
                          help="Input file (JSON or CSV edge list). Use - for stdin.")
@@ -159,18 +162,15 @@ def main():
         sub.add_argument("-s", "--seed", type=int, default=None)
         sub.add_argument("-o", "--output", default=None, help="Output file path")
 
-    # layout
     p_layout = subparsers.add_parser("layout", help="Compute layout positions (JSON output)")
     add_common_args(p_layout)
     p_layout.set_defaults(func=cmd_layout)
 
-    # render
     p_render = subparsers.add_parser("render", help="Layout and render to image (PNG/SVG)")
     add_common_args(p_render)
     p_render.add_argument("-t", "--title", default=None, help="Chart title")
     p_render.set_defaults(func=cmd_render)
 
-    # metrics
     p_metrics = subparsers.add_parser("metrics", help="Compute layout quality metrics")
     add_common_args(p_metrics)
     p_metrics.add_argument("-p", "--positions", default=None,
@@ -178,7 +178,12 @@ def main():
     p_metrics.set_defaults(func=cmd_metrics)
 
     args = parser.parse_args()
-    args.func(args)
+
+    try:
+        args.func(args)
+    except (ValueError, ImportError, FileNotFoundError) as e:
+        print(f"fa2 error: {e}", file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":

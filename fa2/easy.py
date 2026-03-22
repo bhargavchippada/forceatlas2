@@ -30,7 +30,7 @@ _MODE_PRESETS = {
 
 
 def _parse_edges(edges):
-    """Parse flexible edge input into (node_list, sparse_matrix, weights_provided).
+    """Parse flexible edge input into (node_list, sparse_matrix).
 
     Accepted formats:
     - List of tuples: ``[(0, 1), (1, 2)]`` (unweighted)
@@ -40,8 +40,17 @@ def _parse_edges(edges):
 
     Returns (node_list, sparse_matrix).
     """
+    edge_list, nodes = _collect_edges(edges)
+    node_list = sorted(nodes, key=str)  # key=str handles mixed int/str types
+    return _edges_to_sparse(node_list, edge_list)
+
+
+def _collect_edges(edges):
+    """Extract (edge_list, node_set) from any supported input format.
+
+    Returns list of (src, tgt, weight) triples and the set of all nodes.
+    """
     if isinstance(edges, dict):
-        # Adjacency dict: {"A": ["B", "C"], ...}
         nodes = set()
         edge_list = []
         for src, targets in edges.items():
@@ -49,16 +58,14 @@ def _parse_edges(edges):
             for tgt in targets:
                 nodes.add(tgt)
                 edge_list.append((src, tgt, 1.0))
-        node_list = sorted(nodes)
-        return _edges_to_sparse(node_list, edge_list)
+        return edge_list, nodes
 
     if not edges:
-        return [], coo_matrix((0, 0))
+        return [], set()
 
     first = edges[0]
 
     if isinstance(first, dict):
-        # List of dicts: [{"source": "A", "target": "B", "weight": 5.0}, ...]
         edge_list = []
         nodes = set()
         for e in edges:
@@ -68,8 +75,7 @@ def _parse_edges(edges):
             nodes.add(src)
             nodes.add(tgt)
             edge_list.append((src, tgt, w))
-        node_list = sorted(nodes)
-        return _edges_to_sparse(node_list, edge_list)
+        return edge_list, nodes
 
     # List of tuples
     edge_list = []
@@ -86,33 +92,7 @@ def _parse_edges(edges):
         nodes.add(src)
         nodes.add(tgt)
         edge_list.append((src, tgt, w))
-    node_list = sorted(nodes)
-    return _edges_to_sparse(node_list, edge_list)
-
-
-def _parse_edge_list(edges):
-    """Parse edges into a list of (src, tgt, weight) triples with original IDs."""
-    if isinstance(edges, dict):
-        result = []
-        for src, targets in edges.items():
-            for tgt in targets:
-                result.append((src, tgt, 1.0))
-        return result
-
-    if not edges:
-        return []
-
-    first = edges[0]
-    if isinstance(first, dict):
-        return [(e["source"], e["target"], float(e.get("weight", 1.0))) for e in edges]
-
-    result = []
-    for e in edges:
-        if len(e) == 2:
-            result.append((e[0], e[1], 1.0))
-        elif len(e) >= 3:
-            result.append((e[0], e[1], float(e[2])))
-    return result
+    return edge_list, nodes
 
 
 def _edges_to_sparse(node_list, edge_list):
@@ -257,26 +237,30 @@ def visualize(
     matplotlib.figure.Figure, bytes, or dict
         Depends on ``output`` format.
     """
-    positions = layout(edges, iterations=iterations, dim=dim, mode=mode, seed=seed)
+    # Parse edges once, compute layout, then reuse for viz
+    edge_list, nodes = _collect_edges(edges)
+    node_list = sorted(nodes, key=str)
+    node_list, G = _edges_to_sparse(node_list, edge_list)
 
-    if not positions:
+    if not node_list:
         return {} if output == "json" else None
 
-    # Build a NetworkX graph for viz (it handles node IDs natively)
+    # Compute layout
+    fa2_kwargs = {"dim": dim, "seed": seed, "verbose": False, **_MODE_PRESETS.get(mode, {})}
+    fa2 = ForceAtlas2.inferSettings(G, **fa2_kwargs)
+    raw_positions = fa2.forceatlas2(G, iterations=iterations)
+    positions = {node: pos for node, pos in zip(node_list, raw_positions)}
+
+    # Build a NetworkX graph for viz (handles node IDs natively)
     try:
         import networkx as nx
         G_viz = nx.Graph()
-        node_list, G_sparse = _parse_edges(edges)
         G_viz.add_nodes_from(node_list)
-        # Re-parse edges to get original IDs
-        parsed = _parse_edge_list(edges)
-        for src, tgt, w in parsed:
-            G_viz.add_edge(src, tgt, weight=w)
+        for src, tgt, w in edge_list:
+            if src in positions and tgt in positions:
+                G_viz.add_edge(src, tgt, weight=w)
     except ImportError:
-        # Fallback: use sparse matrix with integer positions
-        node_list, G_sparse = _parse_edges(edges)
-        G_viz = G_sparse
-        # Remap positions to integer keys
+        G_viz = G
         positions = {i: positions[n] for i, n in enumerate(node_list)}
 
     if output == "json":
