@@ -506,12 +506,46 @@ Requires: `pip install fa2[mcp]`
 
 Tools: `layout_graph`, `layout_and_render`, `evaluate_layout`
 
-## Migration from v0.3.x
+## Migration Guide
 
-v1.0.0 is backwards compatible with v0.3.x. Key changes:
+All versions are backwards compatible — existing code continues to work unchanged.
 
-| Change | v0.3.x | v1.0.0 |
-|--------|--------|--------|
+### From v1.0.x to v1.1.0
+
+v1.1.0 adds new modules without changing any existing API. No code changes required.
+
+| What's new | Module | Install |
+|------------|--------|---------|
+| Simple API — `layout()`, `visualize()` from edge lists | `fa2.easy` | included |
+| CLI — `python -m fa2 layout/render/metrics` | `fa2.__main__` | included |
+| Visualization — `plot_layout()`, `export_layout()` | `fa2.viz` | `pip install fa2[viz]` |
+| Quality metrics — `stress()`, `edge_crossing_count()`, `neighborhood_preservation()` | `fa2.metrics` | included |
+| MCP server — AI agent tools | `fa2.mcp_server` | `pip install fa2[mcp]` |
+| Mode presets — `"community"`, `"hub-dissuade"`, `"compact"` | `fa2.easy` | included |
+
+**Before (v1.0.x):**
+
+```python
+import numpy as np
+from fa2 import ForceAtlas2
+
+G = np.array([[0, 1, 1], [1, 0, 1], [1, 1, 0]], dtype=float)
+fa = ForceAtlas2(linLogMode=True, verbose=False, seed=42)
+pos = fa.forceatlas2(G, iterations=100)
+```
+
+**After (v1.1.0) — same code works, plus simpler alternative:**
+
+```python
+from fa2.easy import layout
+
+pos = layout([("A", "B"), ("B", "C"), ("A", "C")], mode="community")
+```
+
+### From v0.3.x to v1.x
+
+| Change | v0.3.x | v1.0.0+ |
+|--------|--------|---------|
 | Python support | 2.7, 3.x | 3.9+ only |
 | NetworkX | 2.x only | 2.7+ and 3.x |
 | Cython | 0.29.x | 3.x |
@@ -526,11 +560,11 @@ v1.0.0 is backwards compatible with v0.3.x. Key changes:
 | `backend` parameter | N/A | New — `"auto"`, `"cython"`, `"vectorized"`, `"loop"` |
 | igraph support | Fragile | Robust (handles weighted, edgeless, directed-rejection) |
 | Error handling | `assert` statements | Proper `ValueError`/`TypeError` with messages |
-| Input validation | Minimal | Symmetry (dense + sparse), pos/sizes shape, param ranges, self-loop warning |
+| Input validation | Minimal | Symmetry, pos/sizes shape, param ranges, self-loop warning |
 | Barnes-Hut | Double-counting leaf repulsion | Correct one-sided repulsion (matches Gephi) |
 | `multiThreaded` | Silent no-op | Raises `NotImplementedError` |
 
-### Breaking changes
+### Breaking changes (v0.3.x → v1.x)
 
 - **Python 2 dropped**: Python 2.x is no longer supported.
 - **`multiThreaded=True`** now raises `NotImplementedError` instead of being silently ignored.
