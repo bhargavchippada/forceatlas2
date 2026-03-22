@@ -31,10 +31,11 @@ tests/
 ├── test_fa2util.py          # Unit tests for force functions (48 tests)
 ├── test_forceatlas2.py      # Integration tests (118 tests)
 ├── test_vectorized.py       # Vectorized backend tests (24 tests)
-├── test_metrics.py          # Layout quality metrics tests (38 tests)
-├── test_viz.py              # Visualization tests (43 tests)
+├── test_metrics.py          # Layout quality metrics tests (41 tests)
+├── test_viz.py              # Visualization tests (49 tests)
 ├── test_easy.py             # Simple API tests (32 tests)
-├── test_cli.py              # CLI tests (20 tests)
+├── test_cli.py              # CLI tests (40 tests)
+├── test_mcp.py              # MCP server tests (12 tests)
 └── test_benchmark.py        # Performance benchmarks (8 tests)
 docs/                        # MkDocs documentation source
 mkdocs.yml                   # MkDocs config (GitHub Pages deployment)
@@ -93,7 +94,7 @@ pip install cython numpy && pip install -e ".[dev]" --no-build-isolation
 # Full install (compiles Cython — needed for .so)
 pip install . --no-build-isolation
 
-# Run tests (331 total: 323 unit/integration + 8 benchmarks)
+# Run tests (372 total: 364 unit/integration + 8 benchmarks)
 pytest tests/ -v
 
 # Run tests with coverage
@@ -137,7 +138,7 @@ cython fa2/fa2util.pyx -3 -o fa2/fa2util.c
 - **CLI** (`python -m fa2`): layout, render, metrics commands with JSON/CSV input
 - **MCP server** (`fa2.mcp_server`): 3 tools for AI agents (layout_graph, layout_and_render, evaluate_layout)
 - **Mode presets**: "default", "community", "hub-dissuade", "compact"
-- 331 tests total
+- 372 tests total, 98% coverage
 
 ## Not Yet Implemented
 

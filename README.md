@@ -545,7 +545,7 @@ cd forceatlas2
 pip install cython numpy
 pip install -e ".[dev]" --no-build-isolation
 
-# Run tests (331 total)
+# Run tests (372 total)
 pytest tests/ -v
 
 # Run tests with coverage

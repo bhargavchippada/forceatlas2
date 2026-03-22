@@ -89,6 +89,8 @@ def _collect_edges(edges):
             w = float(w)
         else:
             raise ValueError(f"Edge must be a 2-tuple or 3-tuple, got {len(e)}-tuple: {e}")
+        if w < 0:
+            raise ValueError(f"Edge weights must be non-negative, got {w} for edge ({src}, {tgt})")
         nodes.add(src)
         nodes.add(tgt)
         edge_list.append((src, tgt, w))
@@ -246,7 +248,9 @@ def visualize(
         return {} if output == "json" else None
 
     # Compute layout
-    fa2_kwargs = {"dim": dim, "seed": seed, "verbose": False, **_MODE_PRESETS.get(mode, {})}
+    if mode not in _MODE_PRESETS:
+        raise ValueError(f"Unknown mode {mode!r}. Choose from: {list(_MODE_PRESETS.keys())}")
+    fa2_kwargs = {"dim": dim, "seed": seed, "verbose": False, **_MODE_PRESETS[mode]}
     fa2 = ForceAtlas2.inferSettings(G, **fa2_kwargs)
     raw_positions = fa2.forceatlas2(G, iterations=iterations)
     positions = {node: pos for node, pos in zip(node_list, raw_positions)}
