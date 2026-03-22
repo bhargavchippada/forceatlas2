@@ -39,6 +39,10 @@ dev = [
     "igraph>=0.9",
 ]
 viz = ["matplotlib>=3.5"]
+mcp = ["mcp>=1.0"]
+all = [
+    "fa2[viz,mcp,networkx,igraph]",
+]
 docs = [
     "mkdocs>=1.6",
     "mkdocs-material>=9.5,<10",
