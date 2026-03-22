@@ -1,0 +1,32 @@
+name: Docs
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip setuptools
+          pip install numpy scipy tqdm networkx igraph
+          pip install mkdocs-material "mkdocstrings[python]"
+          # Install without Cython so mkdocstrings reads .py files
+          # (the .so strips parameter docstrings)
+          pip install -e . --no-build-isolation
+          rm -f fa2/*.so
+
+      - name: Build and deploy docs
+        run: mkdocs gh-deploy --force

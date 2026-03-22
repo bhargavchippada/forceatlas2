@@ -14,9 +14,9 @@ class TestForceAtlas2Init:
         assert fa.gravity == 1.0
         assert fa.scalingRatio == 2.0
 
-    def test_adjust_sizes_raises(self):
-        with pytest.raises(NotImplementedError, match="adjustSizes"):
-            ForceAtlas2(adjustSizes=True)
+    def test_adjust_sizes_accepted(self):
+        fa = ForceAtlas2(adjustSizes=True, verbose=False)
+        assert fa.adjustSizes is True
 
     def test_multithreaded_raises(self):
         with pytest.raises(NotImplementedError, match="multiThreaded"):
@@ -105,6 +105,16 @@ class TestInitGraph:
         with pytest.raises(TypeError, match="numpy ndarray or None"):
             fa.init(small_dense_graph, pos=[[0, 0]] * 5)
 
+    def test_sizes_not_ndarray_raises(self, small_dense_graph):
+        fa = ForceAtlas2(verbose=False, adjustSizes=True)
+        with pytest.raises(TypeError, match="sizes must be a numpy ndarray"):
+            fa.init(small_dense_graph, sizes=[1.0] * 5)
+
+    def test_sizes_wrong_shape_raises(self, small_dense_graph):
+        fa = ForceAtlas2(verbose=False, adjustSizes=True)
+        with pytest.raises(ValueError, match="sizes must have shape"):
+            fa.init(small_dense_graph, sizes=np.array([1.0, 2.0]))
+
     def test_sparse_self_loop_warns(self):
         import warnings
         G = scipy.sparse.csr_matrix(np.array([[1.0, 1, 0], [1, 0, 1], [0, 1, 0]]))
@@ -148,6 +158,16 @@ class TestInitGraph:
 
 
 class TestForceAtlas2Layout:
+    def test_zero_iterations_raises(self, small_dense_graph):
+        fa = ForceAtlas2(verbose=False, seed=42)
+        with pytest.raises(ValueError, match="iterations must be a positive"):
+            fa.forceatlas2(small_dense_graph, iterations=0)
+
+    def test_negative_iterations_raises(self, small_dense_graph):
+        fa = ForceAtlas2(verbose=False, seed=42)
+        with pytest.raises(ValueError, match="iterations must be a positive"):
+            fa.forceatlas2(small_dense_graph, iterations=-5)
+
     def test_basic_layout(self, small_dense_graph):
         fa = ForceAtlas2(verbose=False, seed=42)
         pos = fa.forceatlas2(small_dense_graph, iterations=50)
@@ -450,7 +470,8 @@ class TestLargerGraphs:
 
 class TestVerboseMode:
     def test_verbose_with_barneshut(self, small_dense_graph, capsys):
-        fa = ForceAtlas2(verbose=True, seed=42, barnesHutOptimize=True)
+        # Force loop backend so Timer output is printed (vectorized has no timers)
+        fa = ForceAtlas2(verbose=True, seed=42, barnesHutOptimize=True, backend="loop")
         pos = fa.forceatlas2(small_dense_graph, iterations=2)
         captured = capsys.readouterr()
         assert "BarnesHut" in captured.out
@@ -458,7 +479,7 @@ class TestVerboseMode:
         assert len(pos) == 5
 
     def test_verbose_without_barneshut(self, small_dense_graph, capsys):
-        fa = ForceAtlas2(verbose=True, seed=42, barnesHutOptimize=False)
+        fa = ForceAtlas2(verbose=True, seed=42, barnesHutOptimize=False, backend="loop")
         fa.forceatlas2(small_dense_graph, iterations=2)
         captured = capsys.readouterr()
         assert "Repulsion" in captured.out
@@ -510,3 +531,377 @@ class TestIgraphEdgeCases:
         fa = ForceAtlas2(verbose=False, seed=42)
         layout = fa.forceatlas2_igraph_layout(G, pos=pos_list, iterations=5)
         assert len(layout) == G.vcount()
+
+    def test_igraph_size_attr(self):
+        import igraph
+        G = igraph.Graph.Famous("Petersen")
+        G.vs["size"] = [float(i + 1) for i in range(G.vcount())]
+        fa = ForceAtlas2(verbose=False, seed=42, adjustSizes=True)
+        layout = fa.forceatlas2_igraph_layout(G, iterations=10, size_attr="size")
+        assert len(layout) == G.vcount()
+
+
+class TestAdjustSizes:
+    """Tests for adjustSizes (prevent overlap) mode."""
+
+    def test_basic_layout(self, small_dense_graph):
+        fa = ForceAtlas2(verbose=False, seed=42, adjustSizes=True)
+        pos = fa.forceatlas2(small_dense_graph, iterations=30)
+        assert len(pos) == 5
+
+    def test_with_custom_sizes(self, small_dense_graph):
+        sizes = np.array([2.0, 1.0, 3.0, 1.5, 0.5])
+        fa = ForceAtlas2(verbose=False, seed=42, adjustSizes=True)
+        pos = fa.forceatlas2(small_dense_graph, iterations=30, sizes=sizes)
+        assert len(pos) == 5
+
+    def test_larger_nodes_spread_more(self):
+        """Nodes with larger sizes should be pushed further apart."""
+        G = np.array([[0, 1], [1, 0]], dtype=float)
+        # Small nodes
+        fa_small = ForceAtlas2(verbose=False, seed=42, adjustSizes=True)
+        pos_small = fa_small.forceatlas2(G, iterations=50, sizes=np.array([0.1, 0.1]))
+        dist_small = np.sqrt((pos_small[0][0] - pos_small[1][0])**2 +
+                              (pos_small[0][1] - pos_small[1][1])**2)
+
+        # Large nodes
+        fa_large = ForceAtlas2(verbose=False, seed=42, adjustSizes=True)
+        pos_large = fa_large.forceatlas2(G, iterations=50, sizes=np.array([5.0, 5.0]))
+        dist_large = np.sqrt((pos_large[0][0] - pos_large[1][0])**2 +
+                              (pos_large[0][1] - pos_large[1][1])**2)
+
+        assert dist_large > dist_small
+
+    def test_with_barnes_hut(self, small_dense_graph):
+        fa = ForceAtlas2(verbose=False, seed=42, adjustSizes=True, barnesHutOptimize=True)
+        pos = fa.forceatlas2(small_dense_graph, iterations=20)
+        assert len(pos) == 5
+
+    def test_without_barnes_hut(self, small_dense_graph):
+        fa = ForceAtlas2(verbose=False, seed=42, adjustSizes=True, barnesHutOptimize=False)
+        pos = fa.forceatlas2(small_dense_graph, iterations=20)
+        assert len(pos) == 5
+
+    def test_networkx_size_attr(self):
+        import networkx as nx
+        G = nx.complete_graph(5)
+        for n in G.nodes():
+            G.nodes[n]["size"] = float(n + 1)
+        fa = ForceAtlas2(verbose=False, seed=42, adjustSizes=True)
+        pos = fa.forceatlas2_networkx_layout(G, iterations=20, size_attr="size")
+        assert len(pos) == 5
+
+    def test_3d_adjust_sizes(self, small_dense_graph):
+        fa = ForceAtlas2(verbose=False, seed=42, adjustSizes=True, dim=3)
+        pos = fa.forceatlas2(small_dense_graph, iterations=20)
+        assert len(pos[0]) == 3
+
+
+class TestNDimensionalLayout:
+    """Integration tests for N-dimensional layout (dim > 2)."""
+
+    def test_3d_layout(self, small_dense_graph):
+        fa = ForceAtlas2(verbose=False, seed=42, dim=3)
+        pos = fa.forceatlas2(small_dense_graph, iterations=20)
+        assert len(pos) == 5
+        assert len(pos[0]) == 3  # 3D tuples
+
+    def test_5d_layout(self, small_dense_graph):
+        fa = ForceAtlas2(verbose=False, seed=42, dim=5)
+        pos = fa.forceatlas2(small_dense_graph, iterations=10)
+        assert len(pos[0]) == 5
+
+    def test_3d_with_barnes_hut(self, small_dense_graph):
+        fa = ForceAtlas2(verbose=False, seed=42, dim=3, barnesHutOptimize=True)
+        pos = fa.forceatlas2(small_dense_graph, iterations=20)
+        assert len(pos[0]) == 3
+
+    def test_3d_without_barnes_hut(self, small_dense_graph):
+        fa = ForceAtlas2(verbose=False, seed=42, dim=3, barnesHutOptimize=False)
+        pos = fa.forceatlas2(small_dense_graph, iterations=20)
+        assert len(pos[0]) == 3
+
+    def test_3d_reproducibility(self, small_dense_graph):
+        fa1 = ForceAtlas2(verbose=False, seed=42, dim=3)
+        pos1 = fa1.forceatlas2(small_dense_graph, iterations=20)
+        fa2 = ForceAtlas2(verbose=False, seed=42, dim=3)
+        pos2 = fa2.forceatlas2(small_dense_graph, iterations=20)
+        for p1, p2 in zip(pos1, pos2):
+            for a, b in zip(p1, p2):
+                assert a == pytest.approx(b)
+
+    def test_3d_networkx(self):
+        import networkx as nx
+        G = nx.complete_graph(5)
+        fa = ForceAtlas2(verbose=False, seed=42, dim=3)
+        pos = fa.forceatlas2_networkx_layout(G, iterations=10)
+        for node, coord in pos.items():
+            assert len(coord) == 3
+
+    def test_3d_igraph(self):
+        import igraph
+        G = igraph.Graph.Famous("Petersen")
+        fa = ForceAtlas2(verbose=False, seed=42, dim=3)
+        layout = fa.forceatlas2_igraph_layout(G, iterations=10)
+        assert len(layout[0]) == 3
+
+    def test_3d_initial_positions(self, small_dense_graph):
+        pos = np.array([[i, i, i] for i in range(5)], dtype=float)
+        fa = ForceAtlas2(verbose=False, seed=42, dim=3)
+        result = fa.forceatlas2(small_dense_graph, pos=pos, iterations=10)
+        assert len(result[0]) == 3
+
+    def test_dim_1_raises(self):
+        with pytest.raises(ValueError, match="dim must be"):
+            ForceAtlas2(dim=1)
+
+    def test_2d_backward_compatible(self, small_dense_graph):
+        """dim=2 should produce identical results to default."""
+        fa1 = ForceAtlas2(verbose=False, seed=42)
+        pos1 = fa1.forceatlas2(small_dense_graph, iterations=20)
+        fa2 = ForceAtlas2(verbose=False, seed=42, dim=2)
+        pos2 = fa2.forceatlas2(small_dense_graph, iterations=20)
+        for p1, p2 in zip(pos1, pos2):
+            assert p1[0] == pytest.approx(p2[0])
+            assert p1[1] == pytest.approx(p2[1])
+
+    def test_3d_pos_wrong_shape_raises(self, small_dense_graph):
+        fa = ForceAtlas2(verbose=False, dim=3)
+        pos = np.array([[1, 2]] * 5)  # (5, 2) instead of (5, 3)
+        with pytest.raises(ValueError, match="shape"):
+            fa.forceatlas2(small_dense_graph, pos=pos, iterations=1)
+
+    def test_3d_linlog_mode(self, small_dense_graph):
+        fa = ForceAtlas2(verbose=False, seed=42, dim=3, linLogMode=True)
+        pos = fa.forceatlas2(small_dense_graph, iterations=20)
+        assert len(pos[0]) == 3
+
+    def test_3d_strong_gravity(self, small_dense_graph):
+        fa = ForceAtlas2(verbose=False, seed=42, dim=3, strongGravityMode=True)
+        pos = fa.forceatlas2(small_dense_graph, iterations=20)
+        assert len(pos[0]) == 3
+
+
+class TestStorePosAs:
+    """Tests for store_pos_as parameter."""
+
+    def test_networkx_store_pos(self):
+        import networkx as nx
+        G = nx.complete_graph(5)
+        fa = ForceAtlas2(verbose=False, seed=42)
+        pos = fa.forceatlas2_networkx_layout(G, iterations=10, store_pos_as="fa2_pos")
+        for node in G.nodes():
+            assert "fa2_pos" in G.nodes[node]
+            assert G.nodes[node]["fa2_pos"] == pos[node]
+
+    def test_networkx_no_store(self):
+        import networkx as nx
+        G = nx.complete_graph(5)
+        fa = ForceAtlas2(verbose=False, seed=42)
+        fa.forceatlas2_networkx_layout(G, iterations=10)
+        for node in G.nodes():
+            assert "fa2_pos" not in G.nodes[node]
+
+    def test_igraph_store_pos(self):
+        import igraph
+        G = igraph.Graph.Famous("Petersen")
+        fa = ForceAtlas2(verbose=False, seed=42)
+        fa.forceatlas2_igraph_layout(G, iterations=10, store_pos_as="fa2_pos")
+        assert "fa2_pos" in G.vs.attributes()
+
+
+class TestEdgeWeightProcessing:
+    """Tests for normalizeEdgeWeights and invertedEdgeWeightsMode."""
+
+    def test_inverted_weights_reverses_attraction(self):
+        """With inversion, heavy edges become light and vice versa."""
+        G = np.array([
+            [0, 10, 1],
+            [10, 0, 1],
+            [1, 1, 0],
+        ], dtype=float)
+        # Without inversion: nodes 0-1 strongly attracted (weight 10)
+        fa_normal = ForceAtlas2(verbose=False, seed=42)
+        pos_normal = fa_normal.forceatlas2(G, iterations=50)
+        dist_01_normal = np.sqrt((pos_normal[0][0] - pos_normal[1][0])**2 +
+                                  (pos_normal[0][1] - pos_normal[1][1])**2)
+
+        # With inversion: nodes 0-1 weakly attracted (weight 1/10 = 0.1)
+        fa_inv = ForceAtlas2(verbose=False, seed=42, invertedEdgeWeightsMode=True)
+        pos_inv = fa_inv.forceatlas2(G, iterations=50)
+        dist_01_inv = np.sqrt((pos_inv[0][0] - pos_inv[1][0])**2 +
+                               (pos_inv[0][1] - pos_inv[1][1])**2)
+
+        # With inversion, the formerly heavy edge should be weaker → nodes further apart
+        assert dist_01_inv > dist_01_normal
+
+    def test_normalize_weights_to_unit_range(self):
+        """Normalized weights should produce same layout regardless of scale."""
+        G_small = np.array([[0, 1, 2], [1, 0, 3], [2, 3, 0]], dtype=float)
+        G_large = G_small * 1000.0  # Same structure, 1000x larger weights
+
+        fa_small = ForceAtlas2(verbose=False, seed=42, normalizeEdgeWeights=True)
+        pos_small = fa_small.forceatlas2(G_small, iterations=50)
+
+        fa_large = ForceAtlas2(verbose=False, seed=42, normalizeEdgeWeights=True)
+        pos_large = fa_large.forceatlas2(G_large, iterations=50)
+
+        # With normalization, both should produce identical layouts
+        for p1, p2 in zip(pos_small, pos_large):
+            assert p1[0] == pytest.approx(p2[0], abs=1e-6)
+            assert p1[1] == pytest.approx(p2[1], abs=1e-6)
+
+    def test_normalize_uniform_weights_becomes_ones(self):
+        """When all weights are equal, normalization sets them all to 1.0."""
+        G = np.array([[0, 5, 5], [5, 0, 5], [5, 5, 0]], dtype=float)
+        fa = ForceAtlas2(verbose=False, seed=42, normalizeEdgeWeights=True)
+        pos = fa.forceatlas2(G, iterations=10)
+        assert len(pos) == 3
+
+    def test_inverted_and_normalized_combined(self):
+        """Both flags together should work without error."""
+        G = np.array([[0, 2, 8], [2, 0, 4], [8, 4, 0]], dtype=float)
+        fa = ForceAtlas2(verbose=False, seed=42, invertedEdgeWeightsMode=True, normalizeEdgeWeights=True)
+        pos = fa.forceatlas2(G, iterations=20)
+        assert len(pos) == 3
+
+    def test_zero_weight_edge_inversion_unchanged(self):
+        """Zero-weight edges should remain zero after inversion (not crash)."""
+        # Graph with a zero-weight entry won't appear in edges (nonzero filter)
+        # so this tests the no-crash path
+        G = np.array([[0, 0, 1], [0, 0, 1], [1, 1, 0]], dtype=float)
+        fa = ForceAtlas2(verbose=False, seed=42, invertedEdgeWeightsMode=True)
+        pos = fa.forceatlas2(G, iterations=10)
+        assert len(pos) == 3
+
+    def test_no_edges_skips_processing(self):
+        """Edgeless graph should not crash with weight processing enabled."""
+        G = np.zeros((3, 3))
+        fa = ForceAtlas2(verbose=False, seed=42, normalizeEdgeWeights=True, invertedEdgeWeightsMode=True)
+        pos = fa.forceatlas2(G, iterations=5)
+        assert len(pos) == 3
+
+
+class TestInferSettings:
+    """Tests for ForceAtlas2.inferSettings() auto-tuning."""
+
+    def test_small_dense_graph(self):
+        G = np.ones((10, 10)) - np.eye(10)
+        fa = ForceAtlas2.inferSettings(G)
+        assert isinstance(fa, ForceAtlas2)
+        assert fa.scalingRatio == 10.0  # small graph uses 10.0
+        assert fa.barnesHutOptimize is False  # <2000 nodes
+
+    def test_large_sparse_graph(self):
+        n = 5000
+        G = scipy.sparse.eye(n, format='csr') * 0  # no edges, just structure
+        # Add some edges
+        row = list(range(n - 1))
+        col = list(range(1, n))
+        data = [1.0] * (n - 1)
+        G = scipy.sparse.csr_matrix((data + data, (row + col, col + row)), shape=(n, n))
+        fa = ForceAtlas2.inferSettings(G)
+        assert fa.barnesHutOptimize is True  # >2000 nodes
+        assert fa.scalingRatio == 2.0 * n
+
+    def test_networkx_graph(self):
+        import networkx as nx
+        G = nx.complete_graph(50)
+        fa = ForceAtlas2.inferSettings(G)
+        assert isinstance(fa, ForceAtlas2)
+        # Complete graph with 50 nodes is dense → gravity boosted
+        assert fa.gravity >= 5.0
+
+    def test_igraph_graph(self):
+        import igraph
+        G = igraph.Graph.Famous("Petersen")
+        fa = ForceAtlas2.inferSettings(G)
+        assert isinstance(fa, ForceAtlas2)
+        assert fa.scalingRatio == 10.0  # 10 nodes → small
+
+    def test_overrides(self):
+        G = np.ones((10, 10)) - np.eye(10)
+        fa = ForceAtlas2.inferSettings(G, scalingRatio=99.0, verbose=False)
+        assert fa.scalingRatio == 99.0
+        assert fa.verbose is False
+
+    def test_invalid_type_raises(self):
+        with pytest.raises(TypeError, match="numpy ndarray"):
+            ForceAtlas2.inferSettings("not a graph")
+
+    def test_empty_graph(self):
+        G = np.zeros((1, 1))
+        fa = ForceAtlas2.inferSettings(G)
+        assert isinstance(fa, ForceAtlas2)
+
+    def test_boundary_100_nodes(self):
+        """n=100 uses scalingRatio=10, n=101 uses scalingRatio=202."""
+        G100 = np.ones((100, 100)) - np.eye(100)
+        fa100 = ForceAtlas2.inferSettings(G100)
+        assert fa100.scalingRatio == 10.0
+
+        G101 = np.ones((101, 101)) - np.eye(101)
+        fa101 = ForceAtlas2.inferSettings(G101)
+        assert fa101.scalingRatio == 2.0 * 101
+
+    def test_produces_working_layout(self, small_dense_graph):
+        """inferSettings result should actually work for layout."""
+        fa = ForceAtlas2.inferSettings(small_dense_graph, verbose=False, seed=42)
+        pos = fa.forceatlas2(small_dense_graph, iterations=20)
+        assert len(pos) == 5
+
+    def test_networkx_not_installed(self, monkeypatch):
+        """When networkx is not importable, should fall through to igraph."""
+        import sys
+
+        import igraph
+        monkeypatch.setitem(sys.modules, "networkx", None)
+        G = igraph.Graph.Famous("Petersen")
+        fa = ForceAtlas2.inferSettings(G)
+        assert isinstance(fa, ForceAtlas2)
+
+    def test_both_not_installed_raises(self, monkeypatch):
+        """When neither networkx nor igraph is importable, should raise."""
+        import sys
+        monkeypatch.setitem(sys.modules, "networkx", None)
+        monkeypatch.setitem(sys.modules, "igraph", None)
+        with pytest.raises(TypeError, match="numpy ndarray"):
+            ForceAtlas2.inferSettings("not a graph")
+
+
+class TestLoopBackend:
+    """Tests that force backend='loop' to cover _run_loop paths."""
+
+    def test_loop_dissuade_hubs(self, small_dense_graph):
+        fa = ForceAtlas2(verbose=False, seed=42, backend="loop",
+                         outboundAttractionDistribution=True)
+        pos = fa.forceatlas2(small_dense_graph, iterations=10)
+        assert len(pos) == 5
+
+    def test_loop_3d_layout(self, small_dense_graph):
+        fa = ForceAtlas2(verbose=False, seed=42, backend="loop", dim=3)
+        pos = fa.forceatlas2(small_dense_graph, iterations=10)
+        assert len(pos) == 5
+        assert len(pos[0]) == 3
+
+    def test_loop_callbacks(self, small_dense_graph):
+        called = [0]
+        def cb(i, nodes):
+            called[0] += 1
+        fa = ForceAtlas2(verbose=False, seed=42, backend="loop")
+        fa.forceatlas2(small_dense_graph, iterations=5, callbacks=[cb])
+        assert called[0] == 5
+
+    def test_loop_cython_backend_alias(self, small_dense_graph):
+        """backend='cython' should use the loop path."""
+        fa = ForceAtlas2(verbose=False, seed=42, backend="cython")
+        assert fa._should_use_vectorized() is False
+        pos = fa.forceatlas2(small_dense_graph, iterations=10)
+        assert len(pos) == 5
+
+    def test_auto_selects_loop_when_cython_compiled(self, monkeypatch):
+        """When fa2util is a compiled .so, auto backend should use loop."""
+        import fa2.forceatlas2 as mod
+        monkeypatch.setattr(mod.fa2util, "__file__", "/fake/fa2util.cpython-313-x86_64-linux-gnu.so")
+        fa = ForceAtlas2(verbose=False, seed=42, backend="auto")
+        assert fa._should_use_vectorized() is False

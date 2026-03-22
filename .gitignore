@@ -1,3 +1,6 @@
+# MkDocs build output
+site/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -114,9 +117,12 @@ poetry.lock
 # Cython generated
 fa2/*.c
 !fa2/fa2util.c
+fa2/*.so
+fa2/*.pyd
 
 # Benchmarks
 .benchmarks/
 
-# AI assistant
-CLAUDE.md
+# Coverage
+coverage.json
+htmlcov/
