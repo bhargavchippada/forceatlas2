@@ -74,3 +74,15 @@ def networkx_graph():
     import networkx as nx
     G = nx.random_geometric_graph(30, 0.3, seed=42)
     return G
+
+
+@pytest.fixture
+def triangle_graph():
+    """A 3-node triangle graph."""
+    return np.array([[0, 1, 1], [1, 0, 1], [1, 1, 0]], dtype=float)
+
+
+@pytest.fixture
+def triangle_positions():
+    """Equilateral triangle-ish positions."""
+    return np.array([[0.0, 0.0], [1.0, 0.0], [0.5, 0.866]])
