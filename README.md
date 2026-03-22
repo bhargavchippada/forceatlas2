@@ -10,6 +10,11 @@ The fastest Python implementation of the [ForceAtlas2](http://journals.plos.org/
 ForceAtlas2 is a force-directed layout algorithm designed for network visualization. It spatializes **weighted undirected** graphs in 2D, where edge weights define connection strength. It scales well to large graphs (>10,000 nodes) using Barnes-Hut approximation (O(n log n) complexity).
 
 <p align="center">
+  <img src="https://raw.githubusercontent.com/bhargavchippada/forceatlas2/master/examples/forceatlas2_animation.gif" alt="ForceAtlas2 layout animation — 500 nodes with 7 communities separating over 600 iterations">
+</p>
+<p align="center"><em>500-node stochastic block model (7 communities) laid out with ForceAtlas2 LinLog mode</em></p>
+
+<p align="center">
   <img width="460" height="300" src="https://raw.githubusercontent.com/bhargavchippada/forceatlas2/master/examples/geometric_graph.png" alt="Random geometric graph laid out with ForceAtlas2">
 </p>
 <p align="center"><em>Random geometric graph (400 nodes) laid out with ForceAtlas2</em></p>
@@ -47,16 +52,7 @@ pip install -e ".[dev]" --no-build-isolation
 | networkx | No | NetworkX graph wrapper |
 | igraph | No | igraph graph wrapper |
 
-### Python Version Support
-
-| Python | Status |
-|--------|--------|
-| 3.9 | Supported |
-| 3.10 | Supported |
-| 3.11 | Supported |
-| 3.12 | Supported |
-| 3.13 | Supported |
-| 3.14 | Supported |
+**Python**: >= 3.9 (tested on 3.9 through 3.14)
 
 ## Quick Start
 
@@ -285,13 +281,15 @@ pos = fa.forceatlas2_networkx_layout(G, weight_attr="strength", iterations=1000)
 
 The Cython-compiled version provides 10-100x speedup over pure Python:
 
-| Graph Size | Iterations | Pure Python | With Cython | Speedup |
-|-----------|-----------|------------|------------|---------|
-| 50 nodes | 100 | ~90ms | ~2.3ms | ~39x |
-| 200 nodes | 50 | ~250ms | ~6.4ms | ~39x |
-| 500 nodes | 20 | ~350ms | ~8.3ms | ~42x |
+| Graph Size | Edges | Iterations | With Cython |
+|-----------|-------|-----------|------------|
+| 50 nodes | ~240 | 100 | ~2.3ms |
+| 200 nodes | ~1,000 | 50 | ~6.4ms |
+| 500 nodes | ~2,500 | 20 | ~8.3ms |
+| 10,000 nodes | ~100,000 | 10 | ~350ms |
+| 100,000 nodes | ~500,000 | 5 | ~3.0s |
 
-*Benchmarks on Ubuntu Linux, Python 3.13. Run `pytest tests/test_benchmark.py --benchmark-only -s` to reproduce.*
+*Benchmarks on Ubuntu Linux, Python 3.13, Cython 3.2. Barnes-Hut enabled (default). Run `pytest tests/test_benchmark.py --benchmark-only -s` to reproduce the small-graph benchmarks.*
 
 To verify Cython is active:
 
