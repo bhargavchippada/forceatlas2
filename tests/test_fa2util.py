@@ -1,6 +1,6 @@
 """Unit tests for fa2util force computation functions."""
 
-
+import pytest
 
 from fa2 import fa2util
 
@@ -210,6 +210,73 @@ class TestLogAttraction:
         assert n1.dx == 0.0
 
 
+class TestAntiCollisionForces:
+    """Verify anti-collision force formulas match Gephi ForceFactory.java."""
+
+    def test_repulsion_antiCollision_overlap(self):
+        """Overlapping nodes get strong constant repulsion via apply_repulsion."""
+        n1 = _make_node(0, 0, mass=1.0)
+        n1.size = 5.0
+        n2 = _make_node(3, 0, mass=1.0)
+        n2.size = 5.0
+        # euclidean=3, distance=3-5-5=-7 → overlap
+        # factor = 100 * coeff * m1 * m2 = 100
+        # xDist = n1.x - n2.x = -3
+        fa2util.apply_repulsion([n1, n2], coefficient=1.0, adjustSizes=True)
+        assert n1.dx == pytest.approx(-3.0 * 100.0, abs=1e-6)
+        assert n2.dx == pytest.approx(3.0 * 100.0, abs=1e-6)
+
+    def test_attraction_antiCollision_overlap_zero_force(self):
+        """Overlapping nodes get zero attraction."""
+        n1 = _make_node(0, 0, mass=1.0)
+        n1.size = 5.0
+        n2 = _make_node(3, 0, mass=1.0)
+        n2.size = 5.0
+        fa2util.linAttraction_antiCollision(n1, n2, 1.0, False, coefficient=1.0)
+        assert n1.dx == 0.0
+        assert n2.dx == 0.0
+
+    def test_logAttraction_antiCollision_formula(self):
+        """Verify logAttraction_antiCollision matches Gephi ForceFactory.java.
+
+        Gephi: factor = -coefficient * e * log(1 + distance) / distance
+        where distance = euclidean - size1 - size2
+        Applied as: dx += xDist * factor (xDist has magnitude = euclidean)
+        So force magnitude = |xDist/euclidean| * euclidean * |factor| = euclidean * coeff * e * log(1+d)/d
+        """
+        from math import log
+        n1 = _make_node(0, 0, mass=1.0)
+        n1.size = 1.0
+        n2 = _make_node(10, 0, mass=1.0)
+        n2.size = 1.0
+        fa2util.logAttraction_antiCollision(n1, n2, 1.0, False, coefficient=1.0)
+        # euclidean=10, distance=10-1-1=8
+        # factor = -1 * 1 * log(9) / 8
+        # n1.dx = xDist * factor = (0-10) * (-log(9)/8) = 10*log(9)/8
+        expected = 10.0 * log(9) / 8.0
+        assert n1.dx == pytest.approx(expected, abs=1e-6)
+
+    def test_logAttraction_antiCollision_overlap_zero(self):
+        """Overlapping nodes get zero log attraction."""
+        n1 = _make_node(0, 0, mass=1.0)
+        n1.size = 10.0
+        n2 = _make_node(3, 0, mass=1.0)
+        n2.size = 10.0
+        fa2util.logAttraction_antiCollision(n1, n2, 1.0, False, coefficient=1.0)
+        assert n1.dx == 0.0
+
+    def test_repulsion_antiCollision_no_overlap(self):
+        """Non-overlapping nodes use size-adjusted distance for repulsion."""
+        n1 = _make_node(0, 0, mass=1.0)
+        n1.size = 1.0
+        n2 = _make_node(10, 0, mass=1.0)
+        n2.size = 1.0
+        fa2util.apply_repulsion([n1, n2], coefficient=1.0, adjustSizes=True)
+        # distance = 10 - 1 - 1 = 8, factor = 1*1*1/(8*8) = 0.015625
+        # xDist = -10, n1.dx = -10 * 0.015625 = -0.15625
+        assert n1.dx == pytest.approx(-10.0 / 64.0, abs=1e-6)
+
+
 class TestApplyRepulsion:
     def test_all_nodes_get_forces(self):
         nodes = [_make_node(i, i) for i in range(4)]
@@ -301,15 +368,15 @@ class TestRegion:
         nodes = [_make_node(0, 0, mass=1.0), _make_node(1, 1, mass=1.0)]
         r = fa2util.Region(nodes)
         assert r.mass == 2.0
-        assert abs(r.massCenterX - 0.5) < 1e-10
-        assert abs(r.massCenterY - 0.5) < 1e-10
+        assert abs(r.massCenter[0] - 0.5) < 1e-10
+        assert abs(r.massCenter[1] - 0.5) < 1e-10
 
     def test_single_node_region(self):
         nodes = [_make_node(3, 4, mass=2.0)]
         r = fa2util.Region(nodes)
         assert r.mass == 2.0
-        assert r.massCenterX == 3.0
-        assert r.massCenterY == 4.0
+        assert r.massCenter[0] == 3.0
+        assert r.massCenter[1] == 4.0
         assert r.size == 0.0
 
     def test_build_subregions(self):
@@ -325,6 +392,90 @@ class TestRegion:
         r.applyForceOnNodes(nodes, theta=1.2, coefficient=2.0)
         # Most nodes should have some force applied (center node may cancel)
         nonzero = sum(1 for n in nodes if n.dx != 0.0 or n.dy != 0.0)
+        assert nonzero >= len(nodes) - 1
+
+
+class TestNDimensional:
+    """Tests for N-dimensional force computations (dim > 2)."""
+
+    def test_node_3d(self):
+        n = fa2util.Node(dim=3)
+        assert n.dim == 3
+        assert len(n.pos) == 3
+        assert len(n.force) == 3
+        assert len(n.old_force) == 3
+
+    def test_node_2d_backward_compat(self):
+        n = fa2util.Node(dim=2)
+        n.x = 5.0
+        n.y = 3.0
+        assert n.pos[0] == 5.0
+        assert n.pos[1] == 3.0
+        n.dx = 1.0
+        n.dy = 2.0
+        assert n.force[0] == 1.0
+        assert n.force[1] == 2.0
+
+    def test_repulsion_3d(self):
+        n1 = fa2util.Node(dim=3)
+        n1.mass = 1.0
+        n1.pos = [0.0, 0.0, 0.0]
+        n2 = fa2util.Node(dim=3)
+        n2.mass = 1.0
+        n2.pos = [1.0, 0.0, 0.0]
+        fa2util.apply_repulsion([n1, n2], coefficient=1.0)
+        assert n1.force[0] < 0  # pushed away in x
+        assert abs(n1.force[1]) < 1e-10  # no force in y
+        assert abs(n1.force[2]) < 1e-10  # no force in z
+
+    def test_gravity_3d(self):
+        n = fa2util.Node(dim=3)
+        n.mass = 1.0
+        n.pos = [3.0, 4.0, 5.0]
+        fa2util.apply_gravity([n], gravity=1.0, scalingRatio=2.0, useStrongGravity=False)
+        assert n.force[0] < 0
+        assert n.force[1] < 0
+        assert n.force[2] < 0
+
+    def test_attraction_3d(self):
+        n1 = fa2util.Node(dim=3)
+        n1.mass = 1.0
+        n1.pos = [0.0, 0.0, 0.0]
+        n2 = fa2util.Node(dim=3)
+        n2.mass = 1.0
+        n2.pos = [0.0, 0.0, 5.0]
+        e = fa2util.Edge()
+        e.node1 = 0
+        e.node2 = 1
+        e.weight = 1.0
+        fa2util.apply_attraction([n1, n2], [e], False, 1.0, 1.0, linLogMode=False)
+        assert abs(n1.force[0]) < 1e-10  # no force in x
+        assert abs(n1.force[1]) < 1e-10  # no force in y
+        assert n1.force[2] > 0  # pulled toward n2 in z
+
+    def test_region_3d(self):
+        nodes = []
+        for i in range(8):
+            n = fa2util.Node(dim=3)
+            n.mass = 1.0
+            n.pos = [float(i % 2), float((i >> 1) % 2), float((i >> 2) % 2)]
+            nodes.append(n)
+        r = fa2util.Region(nodes)
+        r.buildSubRegions()
+        assert len(r.subregions) > 0
+        assert len(r.massCenter) == 3
+
+    def test_region_5d(self):
+        nodes = []
+        for i in range(10):
+            n = fa2util.Node(dim=5)
+            n.mass = 1.0
+            n.pos = [float(i * d) for d in range(5)]
+            nodes.append(n)
+        r = fa2util.Region(nodes)
+        r.buildSubRegions()
+        r.applyForceOnNodes(nodes, theta=1.2, coefficient=2.0)
+        nonzero = sum(1 for n in nodes if any(n.force[d] != 0.0 for d in range(5)))
         assert nonzero >= len(nodes) - 1
 
 

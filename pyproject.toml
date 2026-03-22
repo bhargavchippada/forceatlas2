@@ -1,6 +1,6 @@
 [project]
 name = "fa2"
-version = "0.9.1"
+version = "1.0.0"
 description = "The fastest ForceAtlas2 algorithm for Python (and NetworkX)"
 authors = [{name = "Bhargav Chippada", email = "bhargavchippada19@gmail.com"}]
 license = "GPL-3.0-only"
@@ -38,9 +38,15 @@ dev = [
     "networkx>=2.6",
     "igraph>=0.9",
 ]
+docs = [
+    "mkdocs>=1.6",
+    "mkdocs-material>=9.5,<10",
+    "mkdocstrings[python]>=0.24",
+]
 
 [project.urls]
 Homepage = "https://github.com/bhargavchippada/forceatlas2"
+Documentation = "https://bhargavchippada.github.io/forceatlas2/"
 Repository = "https://github.com/bhargavchippada/forceatlas2"
 Issues = "https://github.com/bhargavchippada/forceatlas2/issues"
 

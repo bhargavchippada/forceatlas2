@@ -11,121 +11,276 @@
 from math import log, sqrt
 
 
-# This will substitute for the nLayout object
 class Node:
-    def __init__(self):
+    """Graph node with N-dimensional position and force vectors."""
+
+    __slots__ = ('mass', 'dim', 'pos', 'force', 'old_force', 'size')
+
+    def __init__(self, dim=2):
         self.mass = 0.0
-        self.old_dx = 0.0
-        self.old_dy = 0.0
-        self.dx = 0.0
-        self.dy = 0.0
-        self.x = 0.0
-        self.y = 0.0
+        self.dim = dim
+        self.pos = [0.0] * dim
+        self.force = [0.0] * dim
+        self.old_force = [0.0] * dim
+        self.size = 0.0  # For adjustSizes (node radius)
+
+    # Backward-compatible properties for dim=2 code paths and tests.
+    @property
+    def x(self):
+        return self.pos[0]
+
+    @x.setter
+    def x(self, v):
+        self.pos[0] = v
+
+    @property
+    def y(self):
+        return self.pos[1]
+
+    @y.setter
+    def y(self, v):
+        self.pos[1] = v
+
+    @property
+    def dx(self):
+        return self.force[0]
+
+    @dx.setter
+    def dx(self, v):
+        self.force[0] = v
+
+    @property
+    def dy(self):
+        return self.force[1]
+
+    @dy.setter
+    def dy(self, v):
+        self.force[1] = v
+
+    @property
+    def old_dx(self):
+        return self.old_force[0]
+
+    @old_dx.setter
+    def old_dx(self, v):
+        self.old_force[0] = v
+
+    @property
+    def old_dy(self):
+        return self.old_force[1]
+
+    @old_dy.setter
+    def old_dy(self, v):
+        self.old_force[1] = v
 
 
-# This is not in the original java code, but it makes it easier to deal with edges
 class Edge:
+    """Undirected graph edge with source/target node indices and weight."""
+
+    __slots__ = ('node1', 'node2', 'weight')
+
     def __init__(self):
         self.node1 = -1
         self.node2 = -1
         self.weight = 0.0
 
 
-# Here are some functions from ForceFactory.java
-# =============================================
-
-# TODO: Implement linRepulsion_antiCollision variant for adjustSizes mode.
-#   Gephi subtracts node sizes from distance: d = euclidean_d - size1 - size2.
-#   If d < 0 (overlap): force = 100 * coefficient * m1 * m2 (strong constant push).
-#   If d > 0: same formula as linRepulsion but using size-adjusted distance.
-
-# TODO: Implement linAttraction_antiCollision variants for adjustSizes mode.
-#   Gephi subtracts node sizes from distance. If d <= 0 (overlap): zero attraction.
-#   Applies to all 4 attraction variants (lin, linDistributed, log, logDistributed).
-
-# TODO: Vectorize apply_repulsion / apply_attraction with NumPy for pure-Python
-#   fallback. Currently O(n^2) Python loops; matrix operations could eliminate them.
-
-
-# Repulsion function.  `n1` and `n2` should be nodes.  This will
-# adjust the dx and dy values of `n1`  `n2`
 def linRepulsion(n1, n2, coefficient=0):
-    xDist = n1.x - n2.x
-    yDist = n1.y - n2.y
-    distance2 = xDist * xDist + yDist * yDist  # Distance squared
+    """Apply linear repulsion between two nodes.
+
+    Force: ``F = coefficient * m1 * m2 / distance``, applied as a factor
+    divided by distance² (the ``distance²`` in code is the factor/distance
+    optimization pattern from Gephi).
+
+    Parameters
+    ----------
+    n1, n2 : Node
+        The two nodes to repel.
+    coefficient : float
+        Repulsion coefficient (typically ``scalingRatio``).
+    """
+    dim = n1.dim
+    dist = [n1.pos[d] - n2.pos[d] for d in range(dim)]
+    distance2 = sum(v * v for v in dist)
 
     if distance2 > 0:
         factor = coefficient * n1.mass * n2.mass / distance2
-        n1.dx += xDist * factor
-        n1.dy += yDist * factor
-        n2.dx -= xDist * factor
-        n2.dy -= yDist * factor
+        for d in range(dim):
+            n1.force[d] += dist[d] * factor
+            n2.force[d] -= dist[d] * factor
 
 
-# Repulsion function. 'n' is node and 'r' is region
 def linRepulsion_region(n, r, coefficient=0):
-    xDist = n.x - r.massCenterX
-    yDist = n.y - r.massCenterY
-    distance2 = xDist * xDist + yDist * yDist
+    """Apply one-sided repulsion between a node and a Barnes-Hut region.
+
+    Parameters
+    ----------
+    n : Node
+        The node being repelled.
+    r : Region
+        The Barnes-Hut region (aggregated mass center).
+    coefficient : float
+        Repulsion coefficient.
+    """
+    dim = n.dim
+    dist = [n.pos[d] - r.massCenter[d] for d in range(dim)]
+    distance2 = sum(v * v for v in dist)
 
     if distance2 > 0:
         factor = coefficient * n.mass * r.mass / distance2
-        n.dx += xDist * factor
-        n.dy += yDist * factor
+        for d in range(dim):
+            n.force[d] += dist[d] * factor
 
 
-# Gravity repulsion function.  For some reason, gravity was included
-# within the linRepulsion function in the original gephi java code,
-# which doesn't make any sense (considering a. gravity is unrelated to
-# nodes repelling each other, and b. gravity is actually an
-# attraction)
+def linRepulsion_antiCollision(n1, n2, coefficient=0):
+    """Anti-collision repulsion: subtract node sizes from distance.
+
+    When nodes overlap (``d_adj < 0``), applies a strong constant push
+    (``100x`` normal force). Otherwise uses size-adjusted distance.
+    Reference: Gephi ``ForceFactory.java`` ``linRepulsion_antiCollision``.
+
+    Parameters
+    ----------
+    n1, n2 : Node
+        The two nodes. Must have ``size`` attribute set.
+    coefficient : float
+        Repulsion coefficient.
+    """
+    dim = n1.dim
+    dist = [n1.pos[d] - n2.pos[d] for d in range(dim)]
+    euclidean = sqrt(sum(v * v for v in dist))
+    distance = euclidean - n1.size - n2.size
+
+    if euclidean > 0:
+        if distance <= 0:
+            # Overlap or touching: strong constant repulsive force
+            factor = 100.0 * coefficient * n1.mass * n2.mass
+        else:
+            # No overlap: standard repulsion with size-adjusted distance
+            factor = coefficient * n1.mass * n2.mass / (distance * distance)
+        # Direction is still based on euclidean dist vector (unit = dist/euclidean)
+        for d in range(dim):
+            n1.force[d] += dist[d] * factor
+            n2.force[d] -= dist[d] * factor
+
+
+def linRepulsion_antiCollision_region(n, r, coefficient=0):
+    """Anti-collision repulsion between a node and a Barnes-Hut region.
+
+    One-sided version for Barnes-Hut traversal. The region has no size.
+
+    Parameters
+    ----------
+    n : Node
+        The node being repelled.
+    r : Region
+        The Barnes-Hut region.
+    coefficient : float
+        Repulsion coefficient.
+    """
+    dim = n.dim
+    dist = [n.pos[d] - r.massCenter[d] for d in range(dim)]
+    euclidean = sqrt(sum(v * v for v in dist))
+    distance = euclidean - n.size
+
+    if euclidean > 0:
+        if distance <= 0:
+            factor = 100.0 * coefficient * n.mass * r.mass
+        else:
+            factor = coefficient * n.mass * r.mass / (distance * distance)
+        for d in range(dim):
+            n.force[d] += dist[d] * factor
+
+
 def linGravity(n, g):
-    xDist = n.x
-    yDist = n.y
-    distance = sqrt(xDist * xDist + yDist * yDist)
+    """Apply linear gravity toward the origin.
 
-    if distance > 0:
+    Force: ``F = mass * g / distance``. Weakens with distance.
+
+    Parameters
+    ----------
+    n : Node
+        The node to attract toward origin.
+    g : float
+        Gravity strength.
+    """
+    dim = n.dim
+    distance2 = sum(n.pos[d] * n.pos[d] for d in range(dim))
+
+    if distance2 > 0:
+        distance = sqrt(distance2)
         factor = n.mass * g / distance
-        n.dx -= xDist * factor
-        n.dy -= yDist * factor
+        for d in range(dim):
+            n.force[d] -= n.pos[d] * factor
 
 
-# Strong gravity force function. `n` should be a node, and `g`
-# should be a constant by which to apply the force.
 def strongGravity(n, g, coefficient=0):
-    xDist = n.x
-    yDist = n.y
+    """Apply strong (distance-independent) gravity toward origin.
 
-    if xDist != 0 or yDist != 0:
+    Force: ``F = coefficient * mass * g``. Does not weaken with distance.
+
+    Parameters
+    ----------
+    n : Node
+        The node to attract toward origin.
+    g : float
+        Gravity strength.
+    coefficient : float
+        Scaling coefficient (typically ``scalingRatio``).
+    """
+    if any(n.pos[d] != 0 for d in range(n.dim)):
         factor = coefficient * n.mass * g
-        n.dx -= xDist * factor
-        n.dy -= yDist * factor
+        for d in range(n.dim):
+            n.force[d] -= n.pos[d] * factor
 
 
-# Attraction function.  `n1` and `n2` should be nodes.  This will
-# adjust the dx and dy values of `n1` and `n2`.  It does
-# not return anything.
 def linAttraction(n1, n2, e, distributedAttraction, coefficient=0):
-    xDist = n1.x - n2.x
-    yDist = n1.y - n2.y
+    """Apply linear attraction between connected nodes.
+
+    Force: ``F = -coefficient * edgeWeight * distance``.
+
+    Parameters
+    ----------
+    n1, n2 : Node
+        Source and target nodes.
+    e : float
+        Edge weight (after ``edgeWeightInfluence`` exponent).
+    distributedAttraction : bool
+        If True, divide by source node mass (dissuade hubs).
+    coefficient : float
+        Attraction coefficient.
+    """
+    dim = n1.dim
+    dist = [n1.pos[d] - n2.pos[d] for d in range(dim)]
     if not distributedAttraction:
         factor = -coefficient * e
     else:
         factor = -coefficient * e / n1.mass
-    n1.dx += xDist * factor
-    n1.dy += yDist * factor
-    n2.dx -= xDist * factor
-    n2.dy -= yDist * factor
+    for d in range(dim):
+        n1.force[d] += dist[d] * factor
+        n2.force[d] -= dist[d] * factor
 
 
-# Log attraction function for LinLog mode (Noack's LinLog energy model).
-# F = -coefficient * edgeWeight * log(1 + distance)
-# As a factor (force/distance): -coefficient * edgeWeight * log(1 + distance) / distance
-# Reference: Jacomy et al. 2014 Formula 3; Gephi ForceFactory.java logAttraction
 def logAttraction(n1, n2, e, distributedAttraction, coefficient=0):
-    xDist = n1.x - n2.x
-    yDist = n1.y - n2.y
-    distance = sqrt(xDist * xDist + yDist * yDist)
+    """Apply logarithmic attraction for LinLog mode.
+
+    Force: ``F = -coefficient * edgeWeight * log(1 + distance)``.
+    Reference: Jacomy et al. 2014 Formula 3; Gephi ``ForceFactory.java``.
+
+    Parameters
+    ----------
+    n1, n2 : Node
+        Source and target nodes.
+    e : float
+        Edge weight.
+    distributedAttraction : bool
+        If True, divide by source node mass.
+    coefficient : float
+        Attraction coefficient.
+    """
+    dim = n1.dim
+    dist = [n1.pos[d] - n2.pos[d] for d in range(dim)]
+    distance = sqrt(sum(v * v for v in dist))
 
     if distance > 0:
         log_factor = log(1 + distance) / distance
@@ -133,22 +288,103 @@ def logAttraction(n1, n2, e, distributedAttraction, coefficient=0):
             factor = -coefficient * e * log_factor
         else:
             factor = -coefficient * e * log_factor / n1.mass
-        n1.dx += xDist * factor
-        n1.dy += yDist * factor
-        n2.dx -= xDist * factor
-        n2.dy -= yDist * factor
+        for d in range(dim):
+            n1.force[d] += dist[d] * factor
+            n2.force[d] -= dist[d] * factor
 
 
-# The following functions iterate through the nodes or edges and apply
-# the forces directly to the node objects.  These iterations are here
-# instead of the main file because Python is slow with loops.
-def apply_repulsion(nodes, coefficient):
+def linAttraction_antiCollision(n1, n2, e, distributedAttraction, coefficient=0):
+    """Linear attraction with anti-collision: zero force when overlapping.
+
+    Reference: Gephi ``ForceFactory.java`` ``linAttraction_antiCollision``.
+
+    Parameters
+    ----------
+    n1, n2 : Node
+        Source and target nodes.
+    e : float
+        Edge weight.
+    distributedAttraction : bool
+        If True, divide by source node mass.
+    coefficient : float
+        Attraction coefficient.
+    """
+    dim = n1.dim
+    dist = [n1.pos[d] - n2.pos[d] for d in range(dim)]
+    euclidean = sqrt(sum(v * v for v in dist))
+    distance = euclidean - n1.size - n2.size
+
+    if distance > 0:
+        if not distributedAttraction:
+            factor = -coefficient * e
+        else:
+            factor = -coefficient * e / n1.mass
+        for d in range(dim):
+            n1.force[d] += dist[d] * factor
+            n2.force[d] -= dist[d] * factor
+
+
+def logAttraction_antiCollision(n1, n2, e, distributedAttraction, coefficient=0):
+    """Logarithmic attraction with anti-collision: zero force when overlapping.
+
+    Parameters
+    ----------
+    n1, n2 : Node
+        Source and target nodes.
+    e : float
+        Edge weight.
+    distributedAttraction : bool
+        If True, divide by source node mass.
+    coefficient : float
+        Attraction coefficient.
+    """
+    dim = n1.dim
+    dist = [n1.pos[d] - n2.pos[d] for d in range(dim)]
+    euclidean = sqrt(sum(v * v for v in dist))
+    distance = euclidean - n1.size - n2.size
+
+    if distance > 0:
+        log_factor = log(1 + distance) / distance
+        if not distributedAttraction:
+            factor = -coefficient * e * log_factor
+        else:
+            factor = -coefficient * e * log_factor / n1.mass
+        for d in range(dim):
+            n1.force[d] += dist[d] * factor
+            n2.force[d] -= dist[d] * factor
+
+
+def apply_repulsion(nodes, coefficient, adjustSizes=False):
+    """Apply repulsion forces between all pairs of nodes.
+
+    Parameters
+    ----------
+    nodes : list of Node
+        All graph nodes.
+    coefficient : float
+        Repulsion coefficient (``scalingRatio``).
+    adjustSizes : bool
+        Use anti-collision repulsion.
+    """
+    repulse_fn = linRepulsion_antiCollision if adjustSizes else linRepulsion
     for i, n1 in enumerate(nodes):
         for n2 in nodes[:i]:
-            linRepulsion(n1, n2, coefficient)
+            repulse_fn(n1, n2, coefficient)
 
 
 def apply_gravity(nodes, gravity, scalingRatio, useStrongGravity=False):
+    """Apply gravity forces to all nodes.
+
+    Parameters
+    ----------
+    nodes : list of Node
+    gravity : float
+        Gravity strength.
+    scalingRatio : float
+        Used as coefficient for strong gravity.
+    useStrongGravity : bool
+        Use distance-independent strong gravity.
+    """
     if not useStrongGravity:
         for n in nodes:
             linGravity(n, gravity)
@@ -157,10 +393,33 @@ def apply_gravity(nodes, gravity, scalingRatio, useStrongGravity=False):
             strongGravity(n, gravity, scalingRatio)
 
 
-def apply_attraction(nodes, edges, distributedAttraction, coefficient, edgeWeightInfluence, linLogMode=False):
-    # Select attraction function based on mode
-    attract_fn = logAttraction if linLogMode else linAttraction
-    # Optimization, since usually edgeWeightInfluence is 0 or 1, and pow is slow
+def apply_attraction(nodes, edges, distributedAttraction, coefficient, edgeWeightInfluence, linLogMode=False,
+                     adjustSizes=False):
+    """Apply attraction forces along all edges.
+
+    Selects the appropriate attraction function based on ``linLogMode``
+    and ``adjustSizes``. Optimizes for ``edgeWeightInfluence`` of 0 or 1
+    to avoid slow ``pow()`` calls.
+
+    Parameters
+    ----------
+    nodes : list of Node
+    edges : list of Edge
+    distributedAttraction : bool
+        Divide by source mass (dissuade hubs).
+    coefficient : float
+        Attraction coefficient.
+    edgeWeightInfluence : float
+        Exponent applied to edge weights.
+    linLogMode : bool
+        Use logarithmic attraction.
+    adjustSizes : bool
+        Use anti-collision attraction.
+    """
+    if adjustSizes:
+        attract_fn = logAttraction_antiCollision if linLogMode else linAttraction_antiCollision
+    else:
+        attract_fn = logAttraction if linLogMode else linAttraction
     if edgeWeightInfluence == 0:
         for edge in edges:
             attract_fn(nodes[edge.node1], nodes[edge.node2], 1, distributedAttraction, coefficient)
@@ -173,134 +432,133 @@ def apply_attraction(nodes, edges, distributedAttraction, coefficient, edgeWeigh
                        distributedAttraction, coefficient)
 
 
-# For Barnes Hut Optimization
 class Region:
+    """Barnes-Hut spatial tree node.
+
+    Generalizes the quadtree to ``2^dim`` partitioning for N-dimensional
+    layouts. Each region stores aggregated mass and center of mass for
+    its child nodes, enabling O(n log n) repulsion approximation.
+
+    Parameters
+    ----------
+    nodes : list of Node
+        Nodes contained in this region.
+    """
+
     def __init__(self, nodes):
         self.mass = 0.0
-        self.massCenterX = 0.0
-        self.massCenterY = 0.0
+        self.massCenter = []  # N-dimensional center of mass
         self.size = 0.0
         self.nodes = nodes
         self.subregions = []
+        self._dim = nodes[0].dim if nodes else 2
+        self.massCenter = [0.0] * self._dim
         self.updateMassAndGeometry()
 
     def updateMassAndGeometry(self):
         if len(self.nodes) == 1:
             n = self.nodes[0]
             self.mass = n.mass
-            self.massCenterX = n.x
-            self.massCenterY = n.y
+            self.massCenter = list(n.pos)
             self.size = 0.0
         elif len(self.nodes) > 1:
-            self.mass = 0
-            massSumX = 0
-            massSumY = 0
+            dim = self._dim
+            self.mass = 0.0
+            massSum = [0.0] * dim
             for n in self.nodes:
                 self.mass += n.mass
-                massSumX += n.x * n.mass
-                massSumY += n.y * n.mass
+                for d in range(dim):
+                    massSum[d] += n.pos[d] * n.mass
             if self.mass > 0:
-                self.massCenterX = massSumX / self.mass
-                self.massCenterY = massSumY / self.mass
+                self.massCenter = [s / self.mass for s in massSum]
 
             self.size = 0.0
             for n in self.nodes:
-                distance = sqrt((n.x - self.massCenterX) ** 2 + (n.y - self.massCenterY) ** 2)
+                distance = sqrt(sum((n.pos[d] - self.massCenter[d]) ** 2 for d in range(dim)))
                 self.size = max(self.size, 2 * distance)
 
     def buildSubRegions(self):
         if len(self.nodes) > 1:
-            topleftNodes = []
-            bottomleftNodes = []
-            toprightNodes = []
-            bottomrightNodes = []
-            # Optimization: The distribution of self.nodes into
-            # subregions now requires only one for loop. Removed
-            # topNodes and bottomNodes arrays: memory space saving.
+            dim = self._dim
+            # Partition nodes into 2^dim buckets using bitmask on each dimension
+            num_buckets = 1 << dim  # 2^dim
+            buckets = [[] for _ in range(num_buckets)]
             for n in self.nodes:
-                if n.x < self.massCenterX:
-                    if n.y < self.massCenterY:
-                        bottomleftNodes.append(n)
+                bucket = 0
+                for d in range(dim):
+                    if n.pos[d] >= self.massCenter[d]:
+                        bucket |= (1 << d)
+                buckets[bucket].append(n)
+
+            for bucket_nodes in buckets:
+                if len(bucket_nodes) > 0:
+                    if len(bucket_nodes) < len(self.nodes):
+                        subregion = Region(bucket_nodes)
+                        self.subregions.append(subregion)
                     else:
-                        topleftNodes.append(n)
-                else:
-                    if n.y < self.massCenterY:
-                        bottomrightNodes.append(n)
-                    else:
-                        toprightNodes.append(n)
-
-            if len(topleftNodes) > 0:
-                if len(topleftNodes) < len(self.nodes):
-                    subregion = Region(topleftNodes)
-                    self.subregions.append(subregion)
-                else:
-                    for n in topleftNodes:
-                        subregion = Region([n])
-                        self.subregions.append(subregion)
-
-            if len(bottomleftNodes) > 0:
-                if len(bottomleftNodes) < len(self.nodes):
-                    subregion = Region(bottomleftNodes)
-                    self.subregions.append(subregion)
-                else:
-                    for n in bottomleftNodes:
-                        subregion = Region([n])
-                        self.subregions.append(subregion)
-
-            if len(toprightNodes) > 0:
-                if len(toprightNodes) < len(self.nodes):
-                    subregion = Region(toprightNodes)
-                    self.subregions.append(subregion)
-                else:
-                    for n in toprightNodes:
-                        subregion = Region([n])
-                        self.subregions.append(subregion)
-
-            if len(bottomrightNodes) > 0:
-                if len(bottomrightNodes) < len(self.nodes):
-                    subregion = Region(bottomrightNodes)
-                    self.subregions.append(subregion)
-                else:
-                    for n in bottomrightNodes:
-                        subregion = Region([n])
-                        self.subregions.append(subregion)
+                        # All nodes in one bucket — split into individual regions
+                        for n in bucket_nodes:
+                            subregion = Region([n])
+                            self.subregions.append(subregion)
 
             for subregion in self.subregions:
                 subregion.buildSubRegions()
 
-    def applyForce(self, n, theta, coefficient=0):
+    def applyForce(self, n, theta, coefficient=0, adjustSizes=False):
         if len(self.nodes) == 0:
             return
+        repulse_fn = linRepulsion_antiCollision_region if adjustSizes else linRepulsion_region
         if len(self.nodes) < 2:
             if self.nodes[0] is not n:
-                linRepulsion_region(n, self, coefficient)
+                repulse_fn(n, self, coefficient)
         else:
-            distance = sqrt((n.x - self.massCenterX) ** 2 + (n.y - self.massCenterY) ** 2)
+            dim = self._dim
+            distance = sqrt(sum((n.pos[d] - self.massCenter[d]) ** 2 for d in range(dim)))
             if distance * theta > self.size:
-                linRepulsion_region(n, self, coefficient)
+                repulse_fn(n, self, coefficient)
             else:
                 for subregion in self.subregions:
-                    subregion.applyForce(n, theta, coefficient)
+                    subregion.applyForce(n, theta, coefficient, adjustSizes)
 
-    def applyForceOnNodes(self, nodes, theta, coefficient=0):
+    def applyForceOnNodes(self, nodes, theta, coefficient=0, adjustSizes=False):
         for n in nodes:
-            self.applyForce(n, theta, coefficient)
+            self.applyForce(n, theta, coefficient, adjustSizes)
 
 
-# Adjust speed and apply forces step
-def adjustSpeedAndApplyForces(nodes, speed, speedEfficiency, jitterTolerance):
-    # Auto adjust speed.
-    totalSwinging = 0.0  # How much irregular movement
-    totalEffectiveTraction = 0.0  # How much useful movement
+def adjustSpeedAndApplyForces(nodes, speed, speedEfficiency, jitterTolerance, adjustSizes=False):
+    """Adjust simulation speed and apply accumulated forces to node positions.
+
+    Uses swing/traction measurement to adaptively control speed.
+    High swing (oscillation) reduces speed; high traction (consistent
+    movement) increases it.
+
+    Parameters
+    ----------
+    nodes : list of Node
+        All graph nodes with accumulated forces.
+    speed : float
+        Current simulation speed.
+    speedEfficiency : float
+        Current speed efficiency factor.
+    jitterTolerance : float
+        How much swinging is tolerated.
+    adjustSizes : bool
+        Cap per-node speed based on node size.
+
+    Returns
+    -------
+    dict
+        ``{'speed': float, 'speedEfficiency': float}``
+    """
+    totalSwinging = 0.0
+    totalEffectiveTraction = 0.0
     for n in nodes:
-        swinging = sqrt((n.old_dx - n.dx) * (n.old_dx - n.dx) + (n.old_dy - n.dy) * (n.old_dy - n.dy))
+        dim = n.dim
+        swinging = sqrt(sum((n.old_force[d] - n.force[d]) ** 2 for d in range(dim)))
         totalSwinging += n.mass * swinging
         totalEffectiveTraction += .5 * n.mass * sqrt(
-            (n.old_dx + n.dx) * (n.old_dx + n.dx) + (n.old_dy + n.dy) * (n.old_dy + n.dy))
+            sum((n.old_force[d] + n.force[d]) ** 2 for d in range(dim)))
 
-    # Optimize jitter tolerance.  The 'right' jitter tolerance for
-    # this network. Bigger networks need more tolerance. Denser
-    # networks need less tolerance. Totally empiric.
     estimatedOptimalJitterTolerance = .05 * sqrt(len(nodes))
     minJT = sqrt(estimatedOptimalJitterTolerance)
     maxJT = 10
@@ -313,7 +571,6 @@ def adjustSpeedAndApplyForces(nodes, speed, speedEfficiency, jitterTolerance):
 
     minSpeedEfficiency = 0.05
 
-    # Protective against erratic behavior
     if totalEffectiveTraction > 0 and totalSwinging / totalEffectiveTraction > 2.0:
         if speedEfficiency > minSpeedEfficiency:
             speedEfficiency *= .5
@@ -330,26 +587,27 @@ def adjustSpeedAndApplyForces(nodes, speed, speedEfficiency, jitterTolerance):
     elif speed < 1000:
         speedEfficiency *= 1.3
 
-    # But the speed shoudn't rise too much too quickly, since it would
-    # make the convergence drop dramatically.
     maxRise = .5
     speed = speed + min(targetSpeed - speed, maxRise * speed)
 
-    # Apply forces.
-    #
-    # Need to add a case if adjustSizes ("prevent overlap") is
-    # implemented.
+    # Apply forces to positions
     for n in nodes:
-        swinging = n.mass * sqrt((n.old_dx - n.dx) * (n.old_dx - n.dx) + (n.old_dy - n.dy) * (n.old_dy - n.dy))
+        dim = n.dim
+        swinging = n.mass * sqrt(sum((n.old_force[d] - n.force[d]) ** 2 for d in range(dim)))
         factor = speed / (1.0 + sqrt(speed * swinging))
-        n.x = n.x + (n.dx * factor)
-        n.y = n.y + (n.dy * factor)
+        # Gephi caps per-node speed when adjustSizes is on to prevent large nodes overshooting
+        if adjustSizes and n.size > 0:
+            factor = min(factor, 10.0 / n.size)
+        for d in range(dim):
+            n.pos[d] += n.force[d] * factor
 
-    values = {}
-    values['speed'] = speed
-    values['speedEfficiency'] = speedEfficiency
+    return {'speed': speed, 'speedEfficiency': speedEfficiency}
 
-    return values
+
+# Aliases for compatibility with Cython module which has Node2D/NodeND classes.
+# In pure Python, the single Node class handles all dimensions.
+Node2D = Node
+NodeND = Node
 
 
 # Warn if running pure Python fallback (no compiled extension)
