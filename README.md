@@ -281,13 +281,13 @@ pos = fa.forceatlas2_networkx_layout(G, weight_attr="strength", iterations=1000)
 
 The Cython-compiled version provides 10-100x speedup over pure Python:
 
-| Graph Size | Edges | Iterations | With Cython |
-|-----------|-------|-----------|------------|
-| 50 nodes | ~240 | 100 | ~2.3ms |
-| 200 nodes | ~1,000 | 50 | ~6.4ms |
-| 500 nodes | ~2,500 | 20 | ~8.3ms |
-| 10,000 nodes | ~100,000 | 10 | ~350ms |
-| 100,000 nodes | ~500,000 | 5 | ~3.0s |
+| Graph Size | Edges | Iterations | Pure Python | With Cython | Speedup |
+|-----------|-------|-----------|------------|------------|---------|
+| 50 nodes | ~400 | 100 | ~77ms | ~3ms | ~25x |
+| 200 nodes | ~1,900 | 50 | ~245ms | ~9ms | ~26x |
+| 500 nodes | ~4,900 | 20 | ~327ms | ~17ms | ~19x |
+| 10,000 nodes | ~100,000 | 10 | — | ~343ms | — |
+| 100,000 nodes | ~500,000 | 5 | — | ~3.0s | — |
 
 *Benchmarks on Ubuntu Linux, Python 3.13, Cython 3.2. Barnes-Hut enabled (default). Run `pytest tests/test_benchmark.py --benchmark-only -s` to reproduce the small-graph benchmarks.*
 
