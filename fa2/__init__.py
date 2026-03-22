@@ -8,4 +8,4 @@ for 10-100x speedup over pure Python.
 from .forceatlas2 import ForceAtlas2, Timer
 
 __all__ = ["ForceAtlas2", "Timer"]
-__version__ = "1.1.0"
+__version__ = "1.1.1"
