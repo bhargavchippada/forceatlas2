@@ -88,11 +88,13 @@ def stress(G, positions):
 
     # Graph distances (shortest path, hop count)
     graph_dist = shortest_path(adj, directed=False, unweighted=True)
-    # Replace inf (disconnected) with max finite distance + 1
+    # Replace inf (disconnected) with max finite off-diagonal distance + 1
+    np.fill_diagonal(graph_dist, np.inf)  # exclude self-distance from max
     finite_mask = np.isfinite(graph_dist)
     if not finite_mask.all():
         max_d = graph_dist[finite_mask].max() if finite_mask.any() else 1.0
         graph_dist = np.where(finite_mask, graph_dist, max_d + 1.0)
+    np.fill_diagonal(graph_dist, 0.0)  # restore diagonal for squareform
 
     # Layout distances using pdist (memory-efficient: returns vector, not matrix)
     layout_dist_vec = pdist(pos)

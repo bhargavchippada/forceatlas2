@@ -138,10 +138,16 @@ def evaluate_layout(
     edge_tuples = [tuple(e) for e in edges]
     node_list, G = _parse_edges(edge_tuples)
 
-    # Convert positions to proper format
+    # Convert positions to proper format (str keys from layout_graph → original types)
     pos_dict = {}
     for k, v in positions.items():
-        key = int(k) if isinstance(k, str) and k.isdigit() else k
+        if isinstance(k, str):
+            try:
+                key = int(k)
+            except ValueError:
+                key = k
+        else:
+            key = k
         pos_dict[key] = tuple(v)
 
     if not pos_dict:

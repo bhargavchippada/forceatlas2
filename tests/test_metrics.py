@@ -209,6 +209,14 @@ class TestValidation:
         with pytest.raises(ValueError, match="positions has 3.*graph has 2"):
             neighborhood_preservation(G, pos, k=1)
 
+    def test_fully_disconnected_graph(self):
+        """Graph with no edges at all."""
+        G = np.zeros((4, 4), dtype=float)
+        pos = np.array([[0, 0], [1, 0], [0, 1], [1, 1]], dtype=float)
+        s = stress(G, pos)
+        assert isinstance(s, float)
+        assert s >= 0.0
+
     def test_all_nodes_same_position(self):
         """All nodes at origin — layout_mean is 0, should not crash."""
         G = np.array([[0, 1, 1], [1, 0, 1], [1, 1, 0]], dtype=float)

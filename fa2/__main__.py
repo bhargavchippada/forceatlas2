@@ -91,7 +91,7 @@ def cmd_render(args):
     edges = _read_edges(args.input)
 
     fmt = "png"
-    if args.output and args.output.endswith(".svg"):
+    if args.output and args.output.lower().endswith(".svg"):
         fmt = "svg"
 
     result = visualize(

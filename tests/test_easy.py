@@ -175,6 +175,11 @@ class TestVisualize:
         assert fig is not None
         plt.close(fig)
 
+    def test_adjacency_dict_input(self):
+        result = visualize({"A": ["B", "C"], "B": ["A"]}, output="json", seed=42)
+        assert isinstance(result, dict)
+        assert "nodes" in result
+
     def test_community_mode_render(self):
         pytest.importorskip("matplotlib")
         data = visualize(
