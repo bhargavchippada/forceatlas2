@@ -32,14 +32,34 @@ The fastest Python implementation of the [ForceAtlas2](http://journals.plos.org/
 ## Quick Example
 
 ```python
+from fa2.easy import layout, visualize
+
+# No numpy required — just edge lists
+positions = layout([("A", "B"), ("B", "C"), ("A", "C")], mode="community")
+
+# Or render directly
+visualize([("A", "B"), ("B", "C")], output="png", path="graph.png")
+```
+
+Or with the full API:
+
+```python
 import networkx as nx
 from fa2 import ForceAtlas2
 
 G = nx.karate_club_graph()
-
 fa2 = ForceAtlas2(linLogMode=True, verbose=False)
 positions = fa2.forceatlas2_networkx_layout(G, iterations=100)
 ```
+
+## What's New in v1.1.0
+
+- **Simple API** (`fa2.easy`) — `layout()` and `visualize()`, no numpy required
+- **CLI** — `python -m fa2 layout/render/metrics` with JSON/CSV input
+- **Visualization** (`fa2.viz`) — matplotlib rendering, JSON/PNG/SVG/GEXF export
+- **Quality metrics** (`fa2.metrics`) — stress, edge crossings, neighborhood preservation
+- **MCP server** — AI agents can use ForceAtlas2 as a tool
+- **Mode presets** — "community", "hub-dissuade", "compact"
 
 ## What's New in v1.0.0
 

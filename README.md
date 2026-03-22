@@ -59,10 +59,36 @@ pip install -e ".[dev]" --no-build-isolation
 | cython | No (recommended) | 10-100x speedup |
 | networkx | No | NetworkX graph wrapper |
 | igraph | No | igraph graph wrapper |
+| matplotlib | No | Visualization (`pip install fa2[viz]`) |
 
 **Python**: >= 3.9 (tested on 3.9 through 3.14)
 
 ## Quick Start
+
+### Simplest — No Numpy Required
+
+```python
+from fa2.easy import layout, visualize
+
+# Edge list in → positions out
+positions = layout([("A", "B"), ("B", "C"), ("A", "C")], mode="community")
+
+# One call to render
+visualize([("A", "B"), ("B", "C"), ("A", "C")], output="png", path="graph.png")
+```
+
+### CLI
+
+```bash
+# Layout from JSON edge list
+python -m fa2 layout edges.json --mode community -o layout.json
+
+# Render to image
+python -m fa2 render edges.csv -o graph.png
+
+# Compute quality metrics
+echo '[["A","B"],["B","C"]]' | python -m fa2 metrics
+```
 
 ### With NetworkX
 
@@ -438,6 +464,48 @@ Each iteration measures **swinging** (erratic oscillation) and **traction** (use
 
 A 2^dim spatial tree recursively partitions the space. For distant node groups, repulsion is computed against the group's center of mass instead of individual nodes. The `barnesHutTheta` parameter (default 1.2) controls the distance/size threshold — higher values are faster but less accurate.
 
+## Visualization & Export
+
+Requires: `pip install fa2[viz]`
+
+```python
+from fa2.viz import plot_layout, export_layout
+
+# Render to matplotlib figure
+fig = plot_layout(G, positions, color_by_degree=True, title="My Graph")
+
+# Export to various formats
+export_layout(G, positions, fmt="json", path="graph.json")   # D3.js/Sigma.js compatible
+export_layout(G, positions, fmt="png", path="graph.png")     # PNG image
+export_layout(G, positions, fmt="gexf", path="graph.gexf")   # Gephi format
+```
+
+## Layout Quality Metrics
+
+```python
+from fa2.metrics import stress, edge_crossing_count, neighborhood_preservation
+
+s = stress(G, positions)                           # Lower is better
+crossings = edge_crossing_count(G, positions)      # 2D only
+np_score = neighborhood_preservation(G, positions)  # 0-1, higher is better
+```
+
+## MCP Server (AI Agents)
+
+ForceAtlas2 can be used as an MCP tool by AI agents:
+
+```json
+{
+    "mcpServers": {
+        "fa2": {"command": "python", "args": ["-m", "fa2.mcp_server"]}
+    }
+}
+```
+
+Requires: `pip install fa2[mcp]`
+
+Tools: `layout_graph`, `layout_and_render`, `evaluate_layout`
+
 ## Migration from v0.3.x
 
 v1.0.0 is backwards compatible with v0.3.x. Key changes:
@@ -477,11 +545,11 @@ cd forceatlas2
 pip install cython numpy
 pip install -e ".[dev]" --no-build-isolation
 
-# Run tests (198 total: 190 unit/integration + 8 benchmarks)
+# Run tests (372 total)
 pytest tests/ -v
 
-# Run tests with coverage (100% on all modules)
-pytest tests/test_fa2util.py tests/test_forceatlas2.py tests/test_vectorized.py --cov=fa2 --cov-report=term-missing
+# Run tests with coverage
+pytest tests/ --cov=fa2 --cov-report=term-missing
 
 # Run benchmarks only
 pytest tests/test_benchmark.py --benchmark-only -s
