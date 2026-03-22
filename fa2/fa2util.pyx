@@ -1,18 +1,27 @@
-# CPU-intensive ForceAtlas2 routines. Pure Python fallback for when the
-# Cython extension (fa2util.pyx -> fa2util.so) is not compiled.
-#
-# IF YOU MODIFY THIS FILE, YOU MUST ALSO MODIFY fa2util.pyx TO KEEP
-# BOTH IMPLEMENTATIONS IN SYNC!
-#
-# Copyright (C) 2017 Bhargav Chippada <bhargavchippada19@gmail.com>
-#
-# Available under the GPLv3
+# cython: language_level=3
+# cython: boundscheck=False
+# cython: wraparound=False
+# cython: cdivision=True
+"""CPU-intensive ForceAtlas2 routines optimized with Cython.
 
-from math import log, sqrt
+This module contains the core force computation functions used by the
+ForceAtlas2 algorithm. When compiled with Cython, these provide a
+10-100x speedup over the pure Python fallback.
+
+Copyright (C) 2017 Bhargav Chippada <bhargavchippada19@gmail.com>
+Available under the GPLv3
+"""
+
+from libc.math cimport log, sqrt
 
 
-# This will substitute for the nLayout object
-class Node:
+cdef class Node:
+    """Represents a graph node with position and force vectors."""
+    cdef public double mass
+    cdef public double old_dx, old_dy
+    cdef public double dx, dy
+    cdef public double x, y
+
     def __init__(self):
         self.mass = 0.0
         self.old_dx = 0.0
@@ -23,36 +32,25 @@ class Node:
         self.y = 0.0
 
 
-# This is not in the original java code, but it makes it easier to deal with edges
-class Edge:
+cdef class Edge:
+    """Represents a graph edge with source, target, and weight."""
+    cdef public int node1, node2
+    cdef public double weight
+
     def __init__(self):
         self.node1 = -1
         self.node2 = -1
         self.weight = 0.0
 
 
-# Here are some functions from ForceFactory.java
-# =============================================
+# Force computation functions from ForceFactory.java
 
-# TODO: Implement linRepulsion_antiCollision variant for adjustSizes mode.
-#   Gephi subtracts node sizes from distance: d = euclidean_d - size1 - size2.
-#   If d < 0 (overlap): force = 100 * coefficient * m1 * m2 (strong constant push).
-#   If d > 0: same formula as linRepulsion but using size-adjusted distance.
-
-# TODO: Implement linAttraction_antiCollision variants for adjustSizes mode.
-#   Gephi subtracts node sizes from distance. If d <= 0 (overlap): zero attraction.
-#   Applies to all 4 attraction variants (lin, linDistributed, log, logDistributed).
-
-# TODO: Vectorize apply_repulsion / apply_attraction with NumPy for pure-Python
-#   fallback. Currently O(n^2) Python loops; matrix operations could eliminate them.
-
-
-# Repulsion function.  `n1` and `n2` should be nodes.  This will
-# adjust the dx and dy values of `n1`  `n2`
-def linRepulsion(n1, n2, coefficient=0):
-    xDist = n1.x - n2.x
-    yDist = n1.y - n2.y
-    distance2 = xDist * xDist + yDist * yDist  # Distance squared
+cdef void linRepulsion(Node n1, Node n2, double coefficient=0):
+    """Linear repulsion between two nodes."""
+    cdef double xDist = n1.x - n2.x
+    cdef double yDist = n1.y - n2.y
+    cdef double distance2 = xDist * xDist + yDist * yDist
+    cdef double factor
 
     if distance2 > 0:
         factor = coefficient * n1.mass * n2.mass / distance2
@@ -62,11 +60,12 @@ def linRepulsion(n1, n2, coefficient=0):
         n2.dy -= yDist * factor
 
 
-# Repulsion function. 'n' is node and 'r' is region
-def linRepulsion_region(n, r, coefficient=0):
-    xDist = n.x - r.massCenterX
-    yDist = n.y - r.massCenterY
-    distance2 = xDist * xDist + yDist * yDist
+cdef void linRepulsion_region(Node n, Region r, double coefficient=0):
+    """Linear repulsion between a node and a region (Barnes-Hut)."""
+    cdef double xDist = n.x - r.massCenterX
+    cdef double yDist = n.y - r.massCenterY
+    cdef double distance2 = xDist * xDist + yDist * yDist
+    cdef double factor
 
     if distance2 > 0:
         factor = coefficient * n.mass * r.mass / distance2
@@ -74,15 +73,12 @@ def linRepulsion_region(n, r, coefficient=0):
         n.dy += yDist * factor
 
 
-# Gravity repulsion function.  For some reason, gravity was included
-# within the linRepulsion function in the original gephi java code,
-# which doesn't make any sense (considering a. gravity is unrelated to
-# nodes repelling each other, and b. gravity is actually an
-# attraction)
-def linGravity(n, g):
-    xDist = n.x
-    yDist = n.y
-    distance = sqrt(xDist * xDist + yDist * yDist)
+cdef void linGravity(Node n, double g):
+    """Linear gravity — attracts node toward the origin."""
+    cdef double xDist = n.x
+    cdef double yDist = n.y
+    cdef double distance = sqrt(xDist * xDist + yDist * yDist)
+    cdef double factor
 
     if distance > 0:
         factor = n.mass * g / distance
@@ -90,11 +86,11 @@ def linGravity(n, g):
         n.dy -= yDist * factor
 
 
-# Strong gravity force function. `n` should be a node, and `g`
-# should be a constant by which to apply the force.
-def strongGravity(n, g, coefficient=0):
-    xDist = n.x
-    yDist = n.y
+cdef void strongGravity(Node n, double g, double coefficient=0):
+    """Strong gravity — distance-independent attraction toward origin."""
+    cdef double xDist = n.x
+    cdef double yDist = n.y
+    cdef double factor
 
     if xDist != 0 or yDist != 0:
         factor = coefficient * n.mass * g
@@ -102,12 +98,11 @@ def strongGravity(n, g, coefficient=0):
         n.dy -= yDist * factor
 
 
-# Attraction function.  `n1` and `n2` should be nodes.  This will
-# adjust the dx and dy values of `n1` and `n2`.  It does
-# not return anything.
-def linAttraction(n1, n2, e, distributedAttraction, coefficient=0):
-    xDist = n1.x - n2.x
-    yDist = n1.y - n2.y
+cpdef void linAttraction(Node n1, Node n2, double e, bint distributedAttraction, double coefficient=0):
+    """Linear attraction along an edge."""
+    cdef double xDist = n1.x - n2.x
+    cdef double yDist = n1.y - n2.y
+    cdef double factor
     if not distributedAttraction:
         factor = -coefficient * e
     else:
@@ -118,14 +113,18 @@ def linAttraction(n1, n2, e, distributedAttraction, coefficient=0):
     n2.dy -= yDist * factor
 
 
-# Log attraction function for LinLog mode (Noack's LinLog energy model).
-# F = -coefficient * edgeWeight * log(1 + distance)
-# As a factor (force/distance): -coefficient * edgeWeight * log(1 + distance) / distance
-# Reference: Jacomy et al. 2014 Formula 3; Gephi ForceFactory.java logAttraction
-def logAttraction(n1, n2, e, distributedAttraction, coefficient=0):
-    xDist = n1.x - n2.x
-    yDist = n1.y - n2.y
-    distance = sqrt(xDist * xDist + yDist * yDist)
+cpdef void logAttraction(Node n1, Node n2, double e, bint distributedAttraction, double coefficient=0):
+    """Logarithmic attraction along an edge (LinLog mode).
+
+    F = -coefficient * edgeWeight * log(1 + distance)
+    Factor (force/distance) = -coefficient * edgeWeight * log(1 + distance) / distance
+    Reference: Jacomy et al. 2014 Formula 3; Gephi ForceFactory.java logAttraction
+    """
+    cdef double xDist = n1.x - n2.x
+    cdef double yDist = n1.y - n2.y
+    cdef double distance = sqrt(xDist * xDist + yDist * yDist)
+    cdef double factor
+    cdef double log_factor
 
     if distance > 0:
         log_factor = log(1 + distance) / distance
@@ -139,16 +138,26 @@ def logAttraction(n1, n2, e, distributedAttraction, coefficient=0):
         n2.dy -= yDist * factor
 
 
-# The following functions iterate through the nodes or edges and apply
-# the forces directly to the node objects.  These iterations are here
-# instead of the main file because Python is slow with loops.
-def apply_repulsion(nodes, coefficient):
-    for i, n1 in enumerate(nodes):
-        for n2 in nodes[:i]:
+# Batch force application functions
+
+cpdef void apply_repulsion(list nodes, double coefficient):
+    """Apply repulsion forces between all node pairs."""
+    cdef int i = 0
+    cdef int j
+    cdef Node n1, n2
+    for n1 in nodes:
+        j = i
+        for n2 in nodes:
+            if j == 0:
+                break
             linRepulsion(n1, n2, coefficient)
+            j -= 1
+        i += 1
 
 
-def apply_gravity(nodes, gravity, scalingRatio, useStrongGravity=False):
+cpdef void apply_gravity(list nodes, double gravity, double scalingRatio, bint useStrongGravity=False):
+    """Apply gravitational forces to all nodes."""
+    cdef Node n
     if not useStrongGravity:
         for n in nodes:
             linGravity(n, gravity)
@@ -157,25 +166,45 @@ def apply_gravity(nodes, gravity, scalingRatio, useStrongGravity=False):
             strongGravity(n, gravity, scalingRatio)
 
 
-def apply_attraction(nodes, edges, distributedAttraction, coefficient, edgeWeightInfluence, linLogMode=False):
-    # Select attraction function based on mode
-    attract_fn = logAttraction if linLogMode else linAttraction
-    # Optimization, since usually edgeWeightInfluence is 0 or 1, and pow is slow
-    if edgeWeightInfluence == 0:
-        for edge in edges:
-            attract_fn(nodes[edge.node1], nodes[edge.node2], 1, distributedAttraction, coefficient)
-    elif edgeWeightInfluence == 1:
-        for edge in edges:
-            attract_fn(nodes[edge.node1], nodes[edge.node2], edge.weight, distributedAttraction, coefficient)
+cpdef void apply_attraction(list nodes, list edges, bint distributedAttraction, double coefficient,
+                            double edgeWeightInfluence, bint linLogMode=False):
+    """Apply attraction forces along all edges."""
+    cdef Edge edge
+    if linLogMode:
+        if edgeWeightInfluence == 0:
+            for edge in edges:
+                logAttraction(nodes[edge.node1], nodes[edge.node2], 1, distributedAttraction, coefficient)
+        elif edgeWeightInfluence == 1:
+            for edge in edges:
+                logAttraction(nodes[edge.node1], nodes[edge.node2], edge.weight, distributedAttraction, coefficient)
+        else:
+            for edge in edges:
+                logAttraction(nodes[edge.node1], nodes[edge.node2], pow(edge.weight, edgeWeightInfluence),
+                              distributedAttraction, coefficient)
     else:
-        for edge in edges:
-            attract_fn(nodes[edge.node1], nodes[edge.node2], pow(edge.weight, edgeWeightInfluence),
-                       distributedAttraction, coefficient)
+        if edgeWeightInfluence == 0:
+            for edge in edges:
+                linAttraction(nodes[edge.node1], nodes[edge.node2], 1, distributedAttraction, coefficient)
+        elif edgeWeightInfluence == 1:
+            for edge in edges:
+                linAttraction(nodes[edge.node1], nodes[edge.node2], edge.weight, distributedAttraction, coefficient)
+        else:
+            for edge in edges:
+                linAttraction(nodes[edge.node1], nodes[edge.node2], pow(edge.weight, edgeWeightInfluence),
+                              distributedAttraction, coefficient)
 
 
-# For Barnes Hut Optimization
-class Region:
-    def __init__(self, nodes):
+# Barnes-Hut optimization
+
+cdef class Region:
+    """Barnes-Hut tree node for spatial approximation of repulsion forces."""
+    cdef public double mass
+    cdef public double massCenterX, massCenterY
+    cdef public double size
+    cdef public list nodes
+    cdef public list subregions
+
+    def __init__(self, list nodes):
         self.mass = 0.0
         self.massCenterX = 0.0
         self.massCenterY = 0.0
@@ -184,7 +213,12 @@ class Region:
         self.subregions = []
         self.updateMassAndGeometry()
 
-    def updateMassAndGeometry(self):
+    cdef void updateMassAndGeometry(self):
+        cdef double massSumX = 0
+        cdef double massSumY = 0
+        cdef double distance
+        cdef Node n
+
         if len(self.nodes) == 1:
             n = self.nodes[0]
             self.mass = n.mass
@@ -193,8 +227,6 @@ class Region:
             self.size = 0.0
         elif len(self.nodes) > 1:
             self.mass = 0
-            massSumX = 0
-            massSumY = 0
             for n in self.nodes:
                 self.mass += n.mass
                 massSumX += n.x * n.mass
@@ -208,15 +240,20 @@ class Region:
                 distance = sqrt((n.x - self.massCenterX) ** 2 + (n.y - self.massCenterY) ** 2)
                 self.size = max(self.size, 2 * distance)
 
-    def buildSubRegions(self):
+    cpdef void buildSubRegions(self):
+        cdef list topleftNodes
+        cdef list bottomleftNodes
+        cdef list toprightNodes
+        cdef list bottomrightNodes
+        cdef Node n
+        cdef Region subregion
+
         if len(self.nodes) > 1:
             topleftNodes = []
             bottomleftNodes = []
             toprightNodes = []
             bottomrightNodes = []
-            # Optimization: The distribution of self.nodes into
-            # subregions now requires only one for loop. Removed
-            # topNodes and bottomNodes arrays: memory space saving.
+
             for n in self.nodes:
                 if n.x < self.massCenterX:
                     if n.y < self.massCenterY:
@@ -268,7 +305,10 @@ class Region:
             for subregion in self.subregions:
                 subregion.buildSubRegions()
 
-    def applyForce(self, n, theta, coefficient=0):
+    cdef void applyForce(self, Node n, double theta, double coefficient=0):
+        cdef double distance
+        cdef Region subregion
+
         if len(self.nodes) == 0:
             return
         if len(self.nodes) < 2:
@@ -282,28 +322,29 @@ class Region:
                 for subregion in self.subregions:
                     subregion.applyForce(n, theta, coefficient)
 
-    def applyForceOnNodes(self, nodes, theta, coefficient=0):
+    cpdef applyForceOnNodes(self, list nodes, double theta, double coefficient=0):
+        cdef Node n
         for n in nodes:
             self.applyForce(n, theta, coefficient)
 
 
-# Adjust speed and apply forces step
-def adjustSpeedAndApplyForces(nodes, speed, speedEfficiency, jitterTolerance):
-    # Auto adjust speed.
-    totalSwinging = 0.0  # How much irregular movement
-    totalEffectiveTraction = 0.0  # How much useful movement
+cpdef dict adjustSpeedAndApplyForces(list nodes, double speed, double speedEfficiency, double jitterTolerance):
+    """Adjust speed adaptively and apply accumulated forces to node positions."""
+    cdef double totalSwinging = 0.0
+    cdef double totalEffectiveTraction = 0.0
+    cdef Node n
+    cdef double swinging
+
     for n in nodes:
         swinging = sqrt((n.old_dx - n.dx) * (n.old_dx - n.dx) + (n.old_dy - n.dy) * (n.old_dy - n.dy))
         totalSwinging += n.mass * swinging
         totalEffectiveTraction += .5 * n.mass * sqrt(
             (n.old_dx + n.dx) * (n.old_dx + n.dx) + (n.old_dy + n.dy) * (n.old_dy + n.dy))
 
-    # Optimize jitter tolerance.  The 'right' jitter tolerance for
-    # this network. Bigger networks need more tolerance. Denser
-    # networks need less tolerance. Totally empiric.
-    estimatedOptimalJitterTolerance = .05 * sqrt(len(nodes))
-    minJT = sqrt(estimatedOptimalJitterTolerance)
-    maxJT = 10
+    cdef double estimatedOptimalJitterTolerance = .05 * sqrt(len(nodes))
+    cdef double minJT = sqrt(estimatedOptimalJitterTolerance)
+    cdef double maxJT = 10
+    cdef double jt
     if len(nodes) > 0 and totalEffectiveTraction > 0:
         jt = jitterTolerance * max(minJT,
                                    min(maxJT, estimatedOptimalJitterTolerance * totalEffectiveTraction / (
@@ -311,14 +352,14 @@ def adjustSpeedAndApplyForces(nodes, speed, speedEfficiency, jitterTolerance):
     else:
         jt = jitterTolerance * minJT
 
-    minSpeedEfficiency = 0.05
+    cdef double minSpeedEfficiency = 0.05
 
-    # Protective against erratic behavior
     if totalEffectiveTraction > 0 and totalSwinging / totalEffectiveTraction > 2.0:
         if speedEfficiency > minSpeedEfficiency:
             speedEfficiency *= .5
         jt = max(jt, jitterTolerance)
 
+    cdef double targetSpeed
     if totalSwinging == 0:
         targetSpeed = float('inf')
     else:
@@ -330,34 +371,14 @@ def adjustSpeedAndApplyForces(nodes, speed, speedEfficiency, jitterTolerance):
     elif speed < 1000:
         speedEfficiency *= 1.3
 
-    # But the speed shoudn't rise too much too quickly, since it would
-    # make the convergence drop dramatically.
-    maxRise = .5
+    cdef double maxRise = .5
     speed = speed + min(targetSpeed - speed, maxRise * speed)
 
-    # Apply forces.
-    #
-    # Need to add a case if adjustSizes ("prevent overlap") is
-    # implemented.
+    cdef double factor
     for n in nodes:
         swinging = n.mass * sqrt((n.old_dx - n.dx) * (n.old_dx - n.dx) + (n.old_dy - n.dy) * (n.old_dy - n.dy))
         factor = speed / (1.0 + sqrt(speed * swinging))
         n.x = n.x + (n.dx * factor)
         n.y = n.y + (n.dy * factor)
 
-    values = {}
-    values['speed'] = speed
-    values['speedEfficiency'] = speedEfficiency
-
-    return values
-
-
-# Warn if running pure Python fallback (no compiled extension)
-if __file__.endswith(".py"):
-    import warnings
-
-    warnings.warn(
-        "Running pure Python fa2util (no compiled extension found). "
-        "Rebuild for 10-100x speedup: pip install cython && pip install --no-build-isolation fa2",
-        stacklevel=2,
-    )
+    return {'speed': speed, 'speedEfficiency': speedEfficiency}

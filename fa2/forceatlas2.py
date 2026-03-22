@@ -1,74 +1,168 @@
-# This is the fastest python implementation of the ForceAtlas2 plugin from Gephi
-# intended to be used with networkx, but is in theory independent of
-# it since it only relies on the adjacency matrix.  This
-# implementation is based directly on the Gephi plugin:
-#
-# https://github.com/gephi/gephi/blob/master/modules/LayoutPlugin/src/main/java/org/gephi/layout/plugin/forceAtlas2/ForceAtlas2.java
-#
-# For simplicity and for keeping code in sync with upstream, I have
-# reused as many of the variable/function names as possible, even when
-# they are in a more java-like style (e.g. camelcase)
-#
-# I wrote this because I wanted an almost feature complete and fast implementation
-# of ForceAtlas2 algorithm in python
-#
-# NOTES: Currently, this only works for weighted undirected graphs.
-#
-# Copyright (C) 2017 Bhargav Chippada <bhargavchippada19@gmail.com>
-#
-# Available under the GPLv3
+"""ForceAtlas2 layout algorithm for Python.
+
+The fastest Python implementation of the ForceAtlas2 plugin from Gephi,
+intended for use with NetworkX, igraph, or raw adjacency matrices.
+Based on the Gephi Java implementation:
+
+    https://github.com/gephi/gephi/blob/master/modules/LayoutPlugin/src/main/java/org/gephi/layout/plugin/forceAtlas2/ForceAtlas2.java
+
+Currently supports weighted undirected graphs only.
+
+Copyright (C) 2017 Bhargav Chippada <bhargavchippada19@gmail.com>
+Available under the GPLv3
+"""
 
 import random
 import time
+from typing import Any, Callable, Optional, Union
 
-import numpy
+import numpy as np
 import scipy
+import scipy.sparse
 from tqdm import tqdm
 
 from . import fa2util
 
+__all__ = ["ForceAtlas2", "Timer"]
+
 
 class Timer:
-    def __init__(self, name="Timer"):
+    """Simple timer for profiling force computation phases."""
+
+    def __init__(self, name: str = "Timer"):
         self.name = name
-        self.start_time = 0.0
+        self._start_time: Optional[float] = None
         self.total_time = 0.0
 
     def start(self):
-        self.start_time = time.time()
+        self._start_time = time.time()
 
     def stop(self):
-        self.total_time += (time.time() - self.start_time)
+        if self._start_time is None:
+            return
+        self.total_time += time.time() - self._start_time
+        self._start_time = None
 
     def display(self):
-        print(self.name, " took ", "%.2f" % self.total_time, " seconds")
+        print(f"{self.name} took {self.total_time:.2f} seconds")
 
 
 class ForceAtlas2:
-    def __init__(self,
-                 # Behavior alternatives
-                 outboundAttractionDistribution=False,  # Dissuade hubs
-                 linLogMode=False,  # NOT IMPLEMENTED
-                 adjustSizes=False,  # Prevent overlap (NOT IMPLEMENTED)
-                 edgeWeightInfluence=1.0,
+    """ForceAtlas2 layout algorithm implementation.
 
-                 # Performance
-                 jitterTolerance=1.0,  # Tolerance
-                 barnesHutOptimize=True,
-                 barnesHutTheta=1.2,
-                 multiThreaded=False,  # NOT IMPLEMENTED
+    A force-directed graph layout algorithm optimized for quality and performance.
+    Supports Barnes-Hut approximation for O(n log n) complexity.
 
-                 # Tuning
-                 scalingRatio=2.0,
-                 strongGravityMode=False,
-                 gravity=1.0,
+    .. todo:: Implement ``adjustSizes`` (prevent node overlap). Gephi uses
+       anti-collision repulsion (distance minus node sizes, with strong constant
+       repulsive force when overlapping) and anti-collision attraction (zero
+       force when overlapping). See Gephi ForceFactory.java
+       ``linRepulsion_antiCollision`` and ``linAttraction_antiCollision``.
+       (GitHub issue #7, PRs #9, #36)
 
-                 # Log
-                 verbose=True):
-        assert linLogMode == adjustSizes == multiThreaded == False, "You selected a feature that has not been implemented yet..."
+    .. todo:: Implement ``multiThreaded`` parallel force computation. Gephi
+       parallelizes repulsion + gravity (not attraction) using a thread pool
+       with 8*threadCount chunks. Python's GIL limits benefit for CPU-bound
+       work, but this could use multiprocessing or release the GIL in Cython.
+
+    .. todo:: Support N-dimensional layout (3D+). The algorithm generalizes
+       naturally to N dimensions — replace (x, y) with an N-vector, and
+       distance/force calculations extend accordingly. NetworkX's FA2 and
+       the Rust ``forceatlas2`` crate already support this. (GitHub issue #14)
+
+    .. todo:: Add ``normalizeEdgeWeights`` parameter (Gephi feature). Min-max
+       normalizes edge weights to [0, 1] before applying edgeWeightInfluence.
+       Processing order: raw weight -> inversion -> normalization -> exponent.
+
+    .. todo:: Add ``invertedEdgeWeightsMode`` parameter (Gephi feature).
+       Inverts edge weights (w = 1/w) so stronger connections have lower values.
+
+    .. todo:: Add ``inferSettings()`` auto-tuning (from Graphology/sigma.js).
+       Automatically selects scalingRatio, gravity, and barnesHutTheta based
+       on graph size and density.
+
+    .. todo:: Vectorize force computation with NumPy to eliminate Python loops
+       in the pure-Python fallback path. NetworkX's FA2 demonstrates this
+       approach for significant speedup without Cython.
+
+    Parameters
+    ----------
+    outboundAttractionDistribution : bool
+        Distributes attraction along outbound edges. Hubs attract less and are
+        pushed to the borders (aka "Dissuade Hubs" in Gephi).
+    linLogMode : bool
+        Use logarithmic attraction force. Produces more clustered layouts where
+        communities are more tightly grouped.
+    adjustSizes : bool
+        Prevent node overlap. Not yet implemented.
+    edgeWeightInfluence : float
+        How much influence edge weights have. 0 means no influence (all edges
+        equal), 1 means normal influence.
+    jitterTolerance : float
+        How much swinging is tolerated. Higher values give more speed but less
+        precision. Values above 1 are discouraged.
+    barnesHutOptimize : bool
+        Use Barnes-Hut approximation for repulsion calculation.
+        Reduces complexity from O(n^2) to O(n log n).
+    barnesHutTheta : float
+        Accuracy parameter for Barnes-Hut. Lower values are more accurate
+        but slower. Default 1.2.
+    scalingRatio : float
+        Repulsion strength. Higher values produce more spread-out graphs.
+    strongGravityMode : bool
+        Use a stronger gravity model that is distance-independent.
+    gravity : float
+        Attraction to center. Prevents disconnected components from drifting away.
+    seed : int or None
+        Random seed for reproducible layouts. If None, layouts are non-deterministic.
+    verbose : bool
+        Show progress bar and timing information.
+    """
+
+    def __init__(
+        self,
+        # Behavior alternatives
+        outboundAttractionDistribution: bool = False,
+        linLogMode: bool = False,
+        adjustSizes: bool = False,
+        edgeWeightInfluence: float = 1.0,
+        # Performance
+        jitterTolerance: float = 1.0,
+        barnesHutOptimize: bool = True,
+        barnesHutTheta: float = 1.2,
+        multiThreaded: bool = False,
+        # Tuning
+        scalingRatio: float = 2.0,
+        strongGravityMode: bool = False,
+        gravity: float = 1.0,
+        # Reproducibility
+        seed: Optional[int] = None,
+        # Log
+        verbose: bool = True,
+    ):
+        if adjustSizes:
+            raise NotImplementedError(
+                "adjustSizes (prevent overlap) is not yet implemented. "
+                "Contributions welcome: https://github.com/bhargavchippada/forceatlas2"
+            )
+        if multiThreaded:
+            raise NotImplementedError(
+                "multiThreaded is not yet implemented. "
+                "Contributions welcome: https://github.com/bhargavchippada/forceatlas2"
+            )
+        if scalingRatio <= 0:
+            raise ValueError("scalingRatio must be positive")
+        if gravity < 0:
+            raise ValueError("gravity must be non-negative")
+        if barnesHutTheta <= 0:
+            raise ValueError("barnesHutTheta must be positive")
+        if edgeWeightInfluence < 0:
+            raise ValueError("edgeWeightInfluence must be non-negative")
+        if jitterTolerance <= 0:
+            raise ValueError("jitterTolerance must be positive")
+
         self.outboundAttractionDistribution = outboundAttractionDistribution
         self.linLogMode = linLogMode
-        self.adjustSizes = adjustSizes
         self.edgeWeightInfluence = edgeWeightInfluence
         self.jitterTolerance = jitterTolerance
         self.barnesHutOptimize = barnesHutOptimize
@@ -76,97 +170,139 @@ class ForceAtlas2:
         self.scalingRatio = scalingRatio
         self.strongGravityMode = strongGravityMode
         self.gravity = gravity
+        self.seed = seed
         self.verbose = verbose
 
-    def init(self,
-             G,  # a graph in 2D numpy ndarray format (or) scipy sparse matrix format
-             pos=None  # Array of initial positions
-             ):
+    def init(
+        self,
+        G: Union[np.ndarray, scipy.sparse.spmatrix],
+        pos: Optional[np.ndarray] = None,
+    ) -> tuple[list[Any], list[Any]]:
+        """Initialize nodes and edges from an adjacency matrix.
+
+        Parameters
+        ----------
+        G : numpy.ndarray or scipy.sparse matrix
+            Adjacency matrix (must be symmetric for undirected graphs).
+        pos : numpy.ndarray, optional
+            Initial positions as an (N, 2) array.
+
+        Returns
+        -------
+        nodes : list of Node
+        edges : list of Edge
+        """
         isSparse = False
-        if isinstance(G, numpy.ndarray):
-            # Check our assumptions
-            assert G.shape == (G.shape[0], G.shape[0]), "G is not 2D square"
-            assert numpy.all(G.T == G), "G is not symmetric.  Currently only undirected graphs are supported"
-            assert isinstance(pos, numpy.ndarray) or (pos is None), "Invalid node positions"
+        if isinstance(G, np.ndarray):
+            if G.shape[0] != G.shape[1]:
+                raise ValueError(f"Adjacency matrix is not square: {G.shape}")
+            if not np.allclose(G, G.T):
+                raise ValueError("Adjacency matrix is not symmetric. Only undirected graphs are supported.")
         elif scipy.sparse.issparse(G):
-            # Check our assumptions
-            assert G.shape == (G.shape[0], G.shape[0]), "G is not 2D square"
-            assert isinstance(pos, numpy.ndarray) or (pos is None), "Invalid node positions"
+            if G.shape[0] != G.shape[1]:
+                raise ValueError(f"Adjacency matrix is not square: {G.shape}")
+            diff = G - G.T
+            if diff.nnz > 0 and not np.allclose(diff.data, 0):
+                raise ValueError("Adjacency matrix is not symmetric. Only undirected graphs are supported.")
             G = G.tolil()
             isSparse = True
         else:
-            assert False, "G is not numpy ndarray or scipy sparse matrix"
+            raise TypeError(f"G must be a numpy ndarray or scipy sparse matrix, got {type(G).__name__}")
 
-        # Put nodes into a data structure we can understand
+        if pos is not None:
+            if not isinstance(pos, np.ndarray):
+                raise TypeError("pos must be a numpy ndarray or None")
+            if pos.shape != (G.shape[0], 2):
+                raise ValueError(f"pos must have shape ({G.shape[0]}, 2), got {pos.shape}")
+
+        # Warn about self-loops (they inflate node mass without creating edges)
+        if isinstance(G, np.ndarray):
+            if np.any(np.diag(G) != 0):
+                import warnings
+                warnings.warn(
+                    "Adjacency matrix has non-zero diagonal (self-loops). "
+                    "Self-loops inflate node mass but are excluded from edges, "
+                    "which may produce unexpected layouts.",
+                    stacklevel=2,
+                )
+        elif isSparse and G.diagonal().any():
+            import warnings
+            warnings.warn(
+                "Adjacency matrix has non-zero diagonal (self-loops). "
+                "Self-loops inflate node mass but are excluded from edges, "
+                "which may produce unexpected layouts.",
+                stacklevel=2,
+            )
+
+        # Seed RNG for reproducibility
+        rng = random.Random(self.seed)
+
+        # Build node list
         nodes = []
-        for i in range(0, G.shape[0]):
+        for i in range(G.shape[0]):
             n = fa2util.Node()
             if isSparse:
                 n.mass = 1 + len(G.rows[i])
             else:
-                n.mass = 1 + numpy.count_nonzero(G[i])
+                n.mass = 1 + np.count_nonzero(G[i])
             n.old_dx = 0
             n.old_dy = 0
             n.dx = 0
             n.dy = 0
             if pos is None:
-                n.x = random.random()
-                n.y = random.random()
+                n.x = rng.random()
+                n.y = rng.random()
             else:
                 n.x = pos[i][0]
                 n.y = pos[i][1]
             nodes.append(n)
 
-        # Put edges into a data structure we can understand
+        # Build edge list
         edges = []
-        es = numpy.asarray(G.nonzero()).T
-        for e in es:  # Iterate through edges
-            if e[1] <= e[0]: continue  # Avoid duplicate edges
+        es = np.asarray(G.nonzero()).T
+        for e in es:
+            if e[1] <= e[0]:
+                continue  # Avoid duplicate edges
             edge = fa2util.Edge()
-            edge.node1 = e[0]  # The index of the first node in `nodes`
-            edge.node2 = e[1]  # The index of the second node in `nodes`
+            edge.node1 = e[0]
+            edge.node2 = e[1]
             edge.weight = G[tuple(e)]
             edges.append(edge)
 
         return nodes, edges
 
-    # Given an adjacency matrix, this function computes the node positions
-    # according to the ForceAtlas2 layout algorithm.  It takes the same
-    # arguments that one would give to the ForceAtlas2 algorithm in Gephi.
-    # Not all of them are implemented.  See below for a description of
-    # each parameter and whether or not it has been implemented.
-    #
-    # This function will return a list of X-Y coordinate tuples, ordered
-    # in the same way as the rows/columns in the input matrix.
-    #
-    # The only reason you would want to run this directly is if you don't
-    # use networkx.  In this case, you'll likely need to convert the
-    # output to a more usable format.  If you do use networkx, use the
-    # "forceatlas2_networkx_layout" function below.
-    #
-    # Currently, only undirected graphs are supported so the adjacency matrix
-    # should be symmetric.
-    def forceatlas2(self,
-                    G,  # a graph in 2D numpy ndarray format (or) scipy sparse matrix format
-                    pos=None,  # Array of initial positions
-                    iterations=100  # Number of times to iterate the main loop
-                    ):
-        # Initializing, initAlgo()
-        # ================================================================
+    def forceatlas2(
+        self,
+        G: Union[np.ndarray, scipy.sparse.spmatrix],
+        pos: Optional[np.ndarray] = None,
+        iterations: int = 100,
+        callbacks: Optional[list[Callable]] = None,
+    ) -> list[tuple[float, float]]:
+        """Compute ForceAtlas2 layout from an adjacency matrix.
 
-        # speed and speedEfficiency describe a scaling factor of dx and dy
-        # before x and y are adjusted.  These are modified as the
-        # algorithm runs to help ensure convergence.
+        Parameters
+        ----------
+        G : numpy.ndarray or scipy.sparse matrix
+            Adjacency matrix (symmetric, for undirected graphs).
+        pos : numpy.ndarray, optional
+            Initial node positions as an (N, 2) array.
+        iterations : int
+            Number of layout iterations.
+        callbacks : list of callable, optional
+            Functions called after each iteration with signature:
+            ``callback(iteration, nodes)`` where nodes is the list of Node objects.
+
+        Returns
+        -------
+        positions : list of (x, y) tuples
+            Final positions for each node.
+        """
         speed = 1.0
         speedEfficiency = 1.0
         nodes, edges = self.init(G, pos)
         outboundAttCompensation = 1.0
         if self.outboundAttractionDistribution:
-            outboundAttCompensation = numpy.mean([n.mass for n in nodes])
-        # ================================================================
-
-        # Main loop, i.e. goAlgo()
-        # ================================================================
+            outboundAttCompensation = np.mean([n.mass for n in nodes])
 
         barneshut_timer = Timer(name="BarnesHut Approximation")
         repulsion_timer = Timer(name="Repulsion forces")
@@ -174,7 +310,6 @@ class ForceAtlas2:
         attraction_timer = Timer(name="Attraction forces")
         applyforces_timer = Timer(name="AdjustSpeedAndApplyForces step")
 
-        # Each iteration of this loop represents a call to goAlgo().
         niters = range(iterations)
         if self.verbose:
             niters = tqdm(niters)
@@ -192,9 +327,8 @@ class ForceAtlas2:
                 rootRegion.buildSubRegions()
                 barneshut_timer.stop()
 
-            # Charge repulsion forces
+            # Repulsion forces
             repulsion_timer.start()
-            # parallelization should be implemented here
             if self.barnesHutOptimize:
                 rootRegion.applyForceOnNodes(nodes, self.barnesHutTheta, self.scalingRatio)
             else:
@@ -203,13 +337,15 @@ class ForceAtlas2:
 
             # Gravitational forces
             gravity_timer.start()
-            fa2util.apply_gravity(nodes, self.gravity, scalingRatio=self.scalingRatio, useStrongGravity=self.strongGravityMode)
+            fa2util.apply_gravity(nodes, self.gravity, scalingRatio=self.scalingRatio,
+                                  useStrongGravity=self.strongGravityMode)
             gravity_timer.stop()
 
-            # If other forms of attraction were implemented they would be selected here.
+            # Attraction forces
             attraction_timer.start()
-            fa2util.apply_attraction(nodes, edges, self.outboundAttractionDistribution, outboundAttCompensation,
-                                     self.edgeWeightInfluence)
+            fa2util.apply_attraction(nodes, edges, self.outboundAttractionDistribution,
+                                     outboundAttCompensation, self.edgeWeightInfluence,
+                                     self.linLogMode)
             attraction_timer.stop()
 
             # Adjust speeds and apply forces
@@ -219,6 +355,11 @@ class ForceAtlas2:
             speedEfficiency = values['speedEfficiency']
             applyforces_timer.stop()
 
+            # Invoke callbacks
+            if callbacks:
+                for cb in callbacks:
+                    cb(_i, nodes)
+
         if self.verbose:
             if self.barnesHutOptimize:
                 barneshut_timer.display()
@@ -226,61 +367,146 @@ class ForceAtlas2:
             gravity_timer.display()
             attraction_timer.display()
             applyforces_timer.display()
-        # ================================================================
+
         return [(n.x, n.y) for n in nodes]
 
-    # A layout for NetworkX.
-    #
-    # This function returns a NetworkX layout, which is really just a
-    # dictionary of node positions (2D X-Y tuples) indexed by the node name.
-    def forceatlas2_networkx_layout(self, G, pos=None, iterations=100, weight_attr=None):
-        import networkx
+    def forceatlas2_networkx_layout(
+        self,
+        G,
+        pos: Optional[dict] = None,
+        iterations: int = 100,
+        weight_attr: Optional[str] = None,
+        callbacks: Optional[list[Callable]] = None,
+    ) -> dict:
+        """Compute ForceAtlas2 layout for a NetworkX graph.
+
+        Parameters
+        ----------
+        G : networkx.Graph
+            Input graph.
+        pos : dict, optional
+            Initial positions as ``{node: (x, y)}``.
+        iterations : int
+            Number of layout iterations.
+        weight_attr : str, optional
+            Edge attribute name to use as weight. None means unweighted.
+        callbacks : list of callable, optional
+            Functions called after each iteration.
+
+        Returns
+        -------
+        positions : dict
+            Dictionary of ``{node: (x, y)}`` positions.
+        """
+        try:
+            import networkx
+        except ImportError:
+            raise ImportError(
+                "networkx is required for forceatlas2_networkx_layout. "
+                "Install it with: pip install 'fa2[networkx]'"
+            ) from None
+
         try:
             import cynetworkx
         except ImportError:
             cynetworkx = None
 
-        assert (
+        if not (
             isinstance(G, networkx.classes.graph.Graph)
             or (cynetworkx and isinstance(G, cynetworkx.classes.graph.Graph))
-        ), "Not a networkx graph"
-        assert isinstance(pos, dict) or (pos is None), "pos must be specified as a dictionary, as in networkx"
-        M = networkx.to_scipy_sparse_matrix(G, dtype='f', format='lil', weight=weight_attr)
+        ):
+            raise TypeError("G must be a networkx Graph")
+        if G.is_directed():
+            raise ValueError(
+                "Only undirected NetworkX graphs are supported. "
+                "Convert with G.to_undirected() first."
+            )
+        if pos is not None and not isinstance(pos, dict):
+            raise TypeError("pos must be a dictionary or None")
+
+        # NetworkX 2.7+ has to_scipy_sparse_array; 3.x removed to_scipy_sparse_matrix
+        M = networkx.to_scipy_sparse_array(G, dtype='f', format='lil', weight=weight_attr)
+
         if pos is None:
-            l = self.forceatlas2(M, pos=None, iterations=iterations)
+            layout = self.forceatlas2(M, pos=None, iterations=iterations, callbacks=callbacks)
         else:
-            poslist = numpy.asarray([pos[i] for i in G.nodes()])
-            l = self.forceatlas2(M, pos=poslist, iterations=iterations)
-        return dict(zip(G.nodes(), l))
+            try:
+                poslist = np.asarray([pos[i] for i in G.nodes()])
+            except KeyError as exc:
+                raise ValueError(
+                    f"pos is missing an entry for node {exc}. "
+                    "pos must contain a position for every node in G."
+                ) from exc
+            layout = self.forceatlas2(M, pos=poslist, iterations=iterations, callbacks=callbacks)
+        return dict(zip(G.nodes(), layout))
 
-    # A layout for igraph.
-    #
-    # This function returns an igraph layout
-    def forceatlas2_igraph_layout(self, G, pos=None, iterations=100, weight_attr=None):
+    def forceatlas2_igraph_layout(
+        self,
+        G,
+        pos=None,
+        iterations: int = 100,
+        weight_attr: Optional[str] = None,
+        callbacks: Optional[list[Callable]] = None,
+    ):
+        """Compute ForceAtlas2 layout for an igraph graph.
 
+        Parameters
+        ----------
+        G : igraph.Graph
+            Input graph.
+        pos : list or numpy.ndarray, optional
+            Initial positions as an (N, 2) array or list of (x, y) tuples.
+        iterations : int
+            Number of layout iterations.
+        weight_attr : str, optional
+            Edge attribute name to use as weight.
+        callbacks : list of callable, optional
+            Functions called after each iteration.
+
+        Returns
+        -------
+        layout : igraph.Layout
+            An igraph Layout object.
+        """
+        try:
+            import igraph
+        except ImportError:
+            raise ImportError(
+                "igraph is required for forceatlas2_igraph_layout. "
+                "Install it with: pip install 'fa2[igraph]'"
+            ) from None
         from scipy.sparse import csr_matrix
-        import igraph
 
         def to_sparse(graph, weight_attr=None):
+            n = graph.vcount()
             edges = graph.get_edgelist()
             if weight_attr is None:
                 weights = [1] * len(edges)
             else:
-                weights = graph.es[weight_attr]
+                weights = list(graph.es[weight_attr])
 
             if not graph.is_directed():
                 edges.extend([(v, u) for u, v in edges])
-                weights.extend(weights)
+                weights = weights + weights
 
-            return csr_matrix((weights, zip(*edges)))
+            if not edges:
+                return csr_matrix((n, n))
+            return csr_matrix((weights, list(zip(*edges))), shape=(n, n))
 
-        assert isinstance(G, igraph.Graph), "Not a igraph graph"
-        assert isinstance(pos, (list, numpy.ndarray)) or (pos is None), "pos must be a list or numpy array"
+        if not isinstance(G, igraph.Graph):
+            raise TypeError("G must be an igraph Graph")
+        if G.is_directed():
+            raise ValueError(
+                "Only undirected igraph graphs are supported. "
+                "Convert with G.as_undirected() first."
+            )
+        if pos is not None and not isinstance(pos, (list, np.ndarray)):
+            raise TypeError("pos must be a list, numpy array, or None")
 
         if isinstance(pos, list):
-            pos = numpy.array(pos)
+            pos = np.array(pos)
 
         adj = to_sparse(G, weight_attr)
-        coords = self.forceatlas2(adj, pos=pos, iterations=iterations)
+        coords = self.forceatlas2(adj, pos=pos, iterations=iterations, callbacks=callbacks)
 
         return igraph.layout.Layout(coords, 2)
