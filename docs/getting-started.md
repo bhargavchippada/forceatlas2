@@ -128,7 +128,7 @@ fa2 = ForceAtlas2.inferSettings(G, linLogMode=True, gravity=5.0)
 ### 3D Layout
 
 <p align="center">
-  <img src="../examples/forceatlas2_3d_animation.gif" alt="ForceAtlas2 3D layout — 1000 nodes, 8 communities">
+  <img src="https://raw.githubusercontent.com/bhargavchippada/forceatlas2/master/examples/forceatlas2_3d_animation.gif" alt="ForceAtlas2 3D layout — 1000 nodes, 8 communities">
 </p>
 <p align="center"><em>1000-node graph with 8 communities laid out in 3D</em></p>
 
