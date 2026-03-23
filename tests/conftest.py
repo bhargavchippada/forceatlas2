@@ -4,6 +4,13 @@ import numpy as np
 import pytest
 import scipy.sparse
 
+# Force non-interactive matplotlib backend for CI (Windows lacks Tk)
+try:
+    import matplotlib
+    matplotlib.use("Agg")
+except ImportError:
+    pass
+
 
 @pytest.fixture
 def small_dense_graph():

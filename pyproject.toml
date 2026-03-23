@@ -38,10 +38,10 @@ dev = [
     "networkx>=2.6",
     "igraph>=0.9",
     "matplotlib>=3.5",
-    "mcp>=1.0",
+    "mcp>=1.0; python_version>='3.10'",
 ]
 viz = ["matplotlib>=3.5"]
-mcp = ["mcp>=1.0"]
+mcp = ["mcp>=1.0; python_version>='3.10'"]
 all = [
     "fa2[viz,mcp,networkx,igraph]",
 ]
