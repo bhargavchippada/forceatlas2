@@ -87,6 +87,11 @@ def stress(G, positions):
         raise ValueError(f"positions has {pos.shape[0]} entries but graph has {adj_n} nodes")
 
     # Graph distances (shortest path, hop count)
+    # Ensure int32 indices for scipy Cython compatibility (fixes Python 3.9 + older scipy)
+    if issparse(adj):
+        adj = adj.tocsr()
+        adj.indices = adj.indices.astype(np.int32)
+        adj.indptr = adj.indptr.astype(np.int32)
     graph_dist = shortest_path(adj, directed=False, unweighted=True)
     # Replace inf (disconnected) with max finite off-diagonal distance + 1
     np.fill_diagonal(graph_dist, np.inf)  # exclude self-distance from max
@@ -233,6 +238,10 @@ def neighborhood_preservation(G, positions, k=10):
     k = min(k, n - 1)
 
     # Graph distances (hop count)
+    if issparse(adj):
+        adj = adj.tocsr()
+        adj.indices = adj.indices.astype(np.int32)
+        adj.indptr = adj.indptr.astype(np.int32)
     graph_dist = shortest_path(adj, directed=False, unweighted=True)
     finite_mask = np.isfinite(graph_dist)
     if not finite_mask.all():
