@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-ForceAtlas2 — the fastest Python implementation of the ForceAtlas2 graph layout algorithm (from Gephi). Published on PyPI as `fa2` (version 1.1.0). Uses Cython for 10-100x performance over pure Python.
+ForceAtlas2 — the fastest Python implementation of the ForceAtlas2 graph layout algorithm (from Gephi). Published on PyPI as `fa2` (version 1.1.2). Uses Cython for 10-100x performance over pure Python.
 
 - **Repository**: https://github.com/bhargavchippada/forceatlas2
 - **License**: GPLv3
